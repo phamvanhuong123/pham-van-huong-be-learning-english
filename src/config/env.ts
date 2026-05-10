@@ -10,6 +10,17 @@ const envSchema = z.object({
   JWT_ACCESS_SECRET: z.string(),
   JWT_REFRESH_SECRET: z.string(),
   DATABASE_URL: z.string(),
+
+  // ── Email / SMTP ────────────────────────────────────────────────
+  // Để trống trong dev → tự động dùng Ethereal test account
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z
+    .string()
+    .optional()
+    .transform((v) => (v ? parseInt(v, 10) : 587)),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().optional(), // Ví dụ: "TOEIC Master <noreply@yourapp.com>"
 });
 
 const _env = envSchema.safeParse(process.env);

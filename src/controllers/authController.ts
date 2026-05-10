@@ -98,17 +98,18 @@ export const logout = (req: Request, res: Response) => {
 
 export const verifyEmail = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { token } = req.query;
+    const { token } = req.body;
     if (!token || typeof token !== 'string') {
       res.status(400).json({ message: "Token không hợp lệ hoặc đã hết hạn" });
       return;
     }
     await authService.verifyEmail(token);
-    res.redirect(`${env.CLIENT_URL}/login?verified=true`);
+    res.status(200).json({ message: "Xác thực email thành công" });
   } catch (error) {
     next(error);
   }
 };
+
 
 export const forgotPassword = async (req: Request, res: Response, next: NextFunction) => {
   try {

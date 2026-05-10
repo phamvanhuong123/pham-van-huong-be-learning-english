@@ -1,6 +1,12 @@
 import prisma from '../config/database';
 import bcrypt from 'bcryptjs';
 import { generateRandomToken, hashToken } from '../utils/tokenUtils';
+import {
+  sendVerificationEmail,
+  sendResetPasswordEmail,
+  sendPasswordChangedEmail,
+  EmailDeliveryError,
+} from './emailService';
 
 export const registerUser = async (data: any) => {
   const existingUser = await prisma.user.findUnique({ where: { email: data.email } });
@@ -17,12 +23,29 @@ export const registerUser = async (data: any) => {
       name: data.name,
       passwordHash,
       verificationToken: hashedToken,
-      verificationTokenExpires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+      verificationTokenExpires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 giờ
     }
   });
 
-  // Mock sending email
-  console.log(`[Email Service] Gửi email xác thực tới ${user.email}. Link: /api/auth/verify-email?token=${token}`);
+  // Gửi email xác thực (token gốc, chưa hash)
+  // Nếu gửi thất bại → rollback user để tránh tồn tại tài khoản không xác thực được
+  try {
+    await sendVerificationEmail({
+      to: user.email,
+      name: user.name ?? user.email,
+      token,
+    });
+  } catch (err) {
+    if (err instanceof EmailDeliveryError) {
+      await prisma.user.delete({ where: { id: user.id } });
+      throw {
+        statusCode: 503,
+        message: "Không thể gửi email xác thực. Vui lòng thử lại sau.",
+      };
+    }
+    throw err;
+  }
+
   return user;
 };
 
@@ -78,18 +101,26 @@ export const getUserById = async (userId: string) => {
 
 export const forgotPassword = async (email: string) => {
   const user = await prisma.user.findUnique({ where: { email } });
+
+  // Luôn trả về true dù email có tồn tại hay không (tránh user enumeration attack)
   if (user) {
     const { token, hashedToken } = generateRandomToken();
     await prisma.user.update({
       where: { id: user.id },
       data: {
         resetPasswordToken: hashedToken,
-        resetPasswordTokenExpires: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
+        resetPasswordTokenExpires: new Date(Date.now() + 60 * 60 * 1000), // 1 giờ
       }
     });
-    // Mock sending email
-    console.log(`[Email Service] Gửi email đặt lại mật khẩu tới ${email}. Token: ${token}`);
+
+    // Gửi email đặt lại mật khẩu (token gốc, chưa hash)
+    await sendResetPasswordEmail({
+      to: user.email,
+      name: user.name ?? user.email,
+      token,
+    });
   }
+
   return true;
 };
 
@@ -114,6 +145,12 @@ export const resetPassword = async (data: any) => {
       resetPasswordToken: null,
       resetPasswordTokenExpires: null
     }
+  });
+
+  // Gửi email thông báo đổi mật khẩu thành công
+  await sendPasswordChangedEmail({
+    to: user.email,
+    name: user.name ?? user.email,
   });
 
   return true;
