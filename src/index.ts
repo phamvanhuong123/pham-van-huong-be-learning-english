@@ -12,7 +12,6 @@ import cookieParser from 'cookie-parser';
 const app = express();
 
 app.use(cookieParser());
-console.log("DATABASE_URL",env.DATABASE_URL)
 // 1. Helmet for security headers
 app.use(helmet());
 

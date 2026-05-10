@@ -1,6 +1,7 @@
 import prisma from '../config/database';
 import bcrypt from 'bcryptjs';
 import { generateRandomToken, hashToken } from '../utils/tokenUtils';
+import ApiError from '../utils/ApiError';
 import {
   sendVerificationEmail,
   sendResetPasswordEmail,
@@ -11,7 +12,7 @@ import {
 export const registerUser = async (data: any) => {
   const existingUser = await prisma.user.findUnique({ where: { email: data.email } });
   if (existingUser) {
-    throw { statusCode: 409, message: "Email đã được sử dụng" };
+    throw new ApiError("Email đã được sử dụng", 409);
   }
 
   const passwordHash = await bcrypt.hash(data.password, 10);
@@ -38,10 +39,7 @@ export const registerUser = async (data: any) => {
   } catch (err) {
     if (err instanceof EmailDeliveryError) {
       await prisma.user.delete({ where: { id: user.id } });
-      throw {
-        statusCode: 503,
-        message: "Không thể gửi email xác thực. Vui lòng thử lại sau.",
-      };
+      throw new ApiError("Không thể gửi email xác thực. Vui lòng thử lại sau.", 503);
     }
     throw err;
   }
@@ -59,7 +57,7 @@ export const verifyEmail = async (token: string) => {
   });
 
   if (!user) {
-    throw { statusCode: 400, message: "Token không hợp lệ hoặc đã hết hạn" };
+    throw new ApiError("Token không hợp lệ hoặc đã hết hạn", 400);
   }
 
   await prisma.user.update({
@@ -76,20 +74,20 @@ export const verifyEmail = async (token: string) => {
 export const loginUser = async (data: any) => {
   const user = await prisma.user.findUnique({ where: { email: data.email } });
   if (!user) {
-    throw { statusCode: 401, message: "Email hoặc mật khẩu không đúng" };
+    throw new ApiError("Email hoặc mật khẩu không đúng", 401);
   }
 
   const isPasswordValid = await bcrypt.compare(data.password, user.passwordHash);
   if (!isPasswordValid) {
-    throw { statusCode: 401, message: "Email hoặc mật khẩu không đúng" };
+    throw new ApiError("Email hoặc mật khẩu không đúng", 401);
   }
 
   if (user.isBanned) {
-    throw { statusCode: 403, message: "Tài khoản đã bị khóa" };
+    throw new ApiError("Tài khoản đã bị khóa", 403);
   }
 
   if (!user.emailVerified) {
-    throw { statusCode: 403, message: "Tài khoản chưa xác thực email" };
+    throw new ApiError("Tài khoản chưa xác thực email", 403);
   }
 
   return user;
@@ -134,7 +132,7 @@ export const resetPassword = async (data: any) => {
   });
 
   if (!user) {
-    throw { statusCode: 400, message: "Token không hợp lệ hoặc đã hết hạn" };
+    throw new ApiError("Token không hợp lệ hoặc đã hết hạn", 400);
   }
 
   const passwordHash = await bcrypt.hash(data.newPassword, 10);

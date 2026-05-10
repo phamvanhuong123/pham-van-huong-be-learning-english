@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env';
 import prisma from '../config/database';
+import ApiError from '../utils/ApiError';
 
 declare global {
   namespace Express {
@@ -15,8 +16,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      res.status(401).json({ message: "Không tìm thấy access token" });
-      return;
+      throw new ApiError("Không tìm thấy access token", 401);
     }
 
     const token = authHeader.split(' ')[1];
@@ -24,23 +24,20 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     jwt.verify(token, env.JWT_ACCESS_SECRET, async (err: any, decoded: any) => {
       if (err) {
         if (err.name === 'TokenExpiredError') {
-          res.status(401).json({ code: 'TOKEN_EXPIRED', message: "Token đã hết hạn" });
+          return next(new ApiError("Token đã hết hạn", 401));
         } else {
-          res.status(401).json({ message: "Token không hợp lệ" });
+          return next(new ApiError("Token không hợp lệ", 401));
         }
-        return;
       }
 
       // Check DB realtime for banned status or VIP downgrade
       const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
       if (!user) {
-        res.status(401).json({ message: "Người dùng không tồn tại" });
-        return;
+        return next(new ApiError("Người dùng không tồn tại", 401));
       }
 
       if (user.isBanned) {
-        res.status(403).json({ message: "Tài khoản đã bị khóa" });
-        return;
+        return next(new ApiError("Tài khoản đã bị khóa", 403));
       }
 
       // Downgrade VIP if expired

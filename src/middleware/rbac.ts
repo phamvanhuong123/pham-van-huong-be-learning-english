@@ -1,15 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
+import ApiError from '../utils/ApiError';
 
 export const requireRole = (...roles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
-      res.status(401).json({ message: "Bạn cần đăng nhập để thực hiện hành động này" });
-      return;
+      throw new ApiError("Bạn cần đăng nhập để thực hiện hành động này", 401);
     }
 
     if (!roles.includes(req.user.role)) {
-      res.status(403).json({ message: "Bạn không có quyền truy cập chức năng này" });
-      return;
+      throw new ApiError("Bạn không có quyền truy cập chức năng này", 403);
     }
 
     next();
