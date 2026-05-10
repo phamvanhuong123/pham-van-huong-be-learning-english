@@ -1,0 +1,210 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+
+enum Role {
+  STANDARD
+  VIP
+  ADMIN
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String
+  name          String?
+  avatarUrl     String?
+  role          Role      @default(STANDARD)
+  targetScore   Int?
+  examDate      DateTime?
+  emailVerified             Boolean   @default(false)
+  isBanned                  Boolean   @default(false)
+  vipExpiresAt              DateTime?
+  verificationToken         String?
+  verificationTokenExpires  DateTime?
+  resetPasswordToken        String?
+  resetPasswordTokenExpires DateTime?
+
+  results       Result[]
+  vocabs        Vocab[]
+  subscriptions Subscription[]
+  notifications Notification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum ExamPart {
+  PART5
+  PART6
+  PART7
+  FULL
+}
+
+enum ExamType {
+  FREE
+  VIP
+}
+
+model Exam {
+  id          String   @id @default(uuid())
+  title       String
+  part        ExamPart
+  difficulty  Int
+  type        ExamType @default(FREE)
+  duration    Int // Duration in minutes or seconds, depending on logic
+  isPublished Boolean  @default(false)
+
+  questions Question[]
+  results   Result[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Question {
+  id           String  @id @default(uuid())
+  examId       String
+  exam         Exam    @relation(fields: [examId], references: [id], onDelete: Cascade)
+  order        Int
+  passage      String?
+  questionText String
+  grammarTopic String?
+  explanation  String?
+
+  options       Option[]
+  resultDetails ResultDetail[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum OptionLabel {
+  A
+  B
+  C
+  D
+}
+
+model Option {
+  id         String      @id @default(uuid())
+  questionId String
+  question   Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  label      OptionLabel
+  text       String
+  isCorrect  Boolean
+
+  resultDetails ResultDetail[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Result {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  examId      String
+  exam        Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
+  score       Int
+  totalQ      Int
+  correctQ    Int
+  timeTaken   Int // In seconds
+  submittedAt DateTime @default(now())
+
+  details ResultDetail[]
+
+  @@index([userId])
+}
+
+model ResultDetail {
+  id               String   @id @default(uuid())
+  resultId         String
+  result           Result   @relation(fields: [resultId], references: [id], onDelete: Cascade)
+  questionId       String
+  question         Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  selectedOptionId String?
+  selectedOption   Option?  @relation(fields: [selectedOptionId], references: [id], onDelete: SetNull)
+  isCorrect        Boolean
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Vocab {
+  id      String  @id @default(uuid())
+  userId  String
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  word    String
+  meaning String
+  example String?
+  topic   String?
+
+  schedule VocabSchedule?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+enum VocabStatus {
+  NEW
+  LEARNING
+  REVIEW
+  MASTERED
+}
+
+model VocabSchedule {
+  id           String      @id @default(uuid())
+  vocabId      String      @unique
+  vocab        Vocab       @relation(fields: [vocabId], references: [id], onDelete: Cascade)
+  ef           Float       @default(2.5)
+  interval     Int         @default(1)
+  repetitions  Int         @default(0)
+  nextReviewAt DateTime    @default(now())
+  status       VocabStatus @default(NEW)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum SubStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Subscription {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan      String
+  status    SubStatus @default(PENDING)
+  proofUrl  String?
+  startsAt  DateTime?
+  expiresAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id     String  @id @default(uuid())
+  userId String
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title  String
+  body   String
+  isRead Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
