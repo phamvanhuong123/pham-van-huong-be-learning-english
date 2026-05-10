@@ -12,13 +12,13 @@ import cookieParser from 'cookie-parser';
 const app = express();
 
 app.use(cookieParser());
-
+console.log("DATABASE_URL",env.DATABASE_URL)
 // 1. Helmet for security headers
 app.use(helmet());
 
 // 2. CORS
 app.use(cors({
-  origin: env.NODE_ENV === 'production' ? env.CLIENT_URL : '*',
+  origin: env.NODE_ENV === 'production' ? env.CLIENT_URL : "http://localhost:5173",
   credentials: true,
 }));
 
