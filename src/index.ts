@@ -9,6 +9,8 @@ import authRoutes from './routes/auth.routes';
 import examRoutes from './routes/exam.routes';
 import resultRoutes from './routes/result.routes';
 import vocabRoutes from './routes/vocab.routes';
+import dashboardRoutes from './routes/dashboard.routes';
+import profileRoutes from './routes/profile.routes';
 
 import cookieParser from 'cookie-parser';
 
@@ -57,6 +59,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/exams', examRoutes);
 app.use('/api/results', resultRoutes);
 app.use('/api/vocab', vocabRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/profile', profileRoutes);
 // app.use('/api/users', userRoutes);
 // app.use('/api/admin', adminRoutes);
 
