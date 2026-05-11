@@ -1,3 +1,4 @@
+import { StatusCodes } from 'http-status-codes';
 import prisma from '../config/database';
 import ApiError from '../utils/ApiError';
 import { ExamPart, ExamType, Result, ResultDetail, Question, Option } from '@prisma/client';
@@ -124,12 +125,10 @@ export const getExamById = async (examId: string, user: { role: string }) => {
   });
 
   if (!exam) {
-    throw new ApiError('Không tìm thấy bài kiểm tra', 404);
+    throw new ApiError('Không tìm thấy bài kiểm tra', StatusCodes.NOT_FOUND);
   }
 
   let questions = exam.questions;
-
-  // Guard: If exam is VIP and user is STANDARD, preview only first 3 questions
   if (exam.type === ExamType.VIP && user.role === 'STANDARD') {
     questions = questions.slice(0, 3);
   }
@@ -172,10 +171,9 @@ export const submitExam = async (examId: string, userId: string, body: SubmitAns
   });
 
   if (!exam) {
-    throw new ApiError('Không tìm thấy bài kiểm tra', 404);
+    throw new ApiError('Không tìm thấy bài kiểm tra', StatusCodes.NOT_FOUND);
   }
 
-  // Idempotency: check if there's a submission within 5 minutes
   const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
   const recentResult = await prisma.result.findFirst({
     where: {
@@ -195,12 +193,11 @@ export const submitExam = async (examId: string, userId: string, body: SubmitAns
   });
 
   if (recentResult) {
-    return formatResultResponse(recentResult); // return old result directly
+    return formatResultResponse(recentResult);
   }
 
-  // Validate answers length
   if (answers.length !== exam.questions.length) {
-    throw new ApiError('Số lượng câu trả lời không khớp với số lượng câu hỏi trong đề', 400);
+    throw new ApiError('Số lượng câu trả lời không khớp với số lượng câu hỏi trong đề', StatusCodes.BAD_REQUEST);
   }
 
   let correctQ = 0;
@@ -211,7 +208,7 @@ export const submitExam = async (examId: string, userId: string, body: SubmitAns
   for (const q of exam.questions) {
     const answer = answers.find(a => a.questionId === q.id);
     if (!answer) {
-      throw new ApiError(`Thiếu câu trả lời cho câu hỏi ${q.id}`, 400);
+      throw new ApiError(`Thiếu câu trả lời cho câu hỏi ${q.id}`, StatusCodes.BAD_REQUEST);
     }
 
     const { optionId } = answer;
@@ -220,7 +217,7 @@ export const submitExam = async (examId: string, userId: string, body: SubmitAns
     if (optionId !== null) {
       const validOption = q.options.find(o => o.id === optionId);
       if (!validOption) {
-        throw new ApiError(`Lựa chọn ${optionId} không thuộc câu hỏi ${q.id}`, 400);
+        throw new ApiError(`Lựa chọn ${optionId} không thuộc câu hỏi ${q.id}`, StatusCodes.BAD_REQUEST);
       }
     }
 
@@ -281,12 +278,12 @@ export const getResultById = async (resultId: string, userId: string) => {
   });
 
   if (!result) {
-    throw new ApiError('Không tìm thấy kết quả', 404);
+    throw new ApiError('Không tìm thấy kết quả', StatusCodes.NOT_FOUND);
   }
 
   // Guard: result.userId phải === req.user.id
   if (result.userId !== userId) {
-    throw new ApiError('Bạn không có quyền xem kết quả này', 403);
+    throw new ApiError('Bạn không có quyền xem kết quả này', StatusCodes.FORBIDDEN);
   }
 
   return formatResultResponse(result);

@@ -1,12 +1,8 @@
-// ─── Shared ───────────────────────────────────────────────────────────────────
-
 export interface AccuracyByPart {
-  PART5: number | null; // null nếu chưa làm part này — không trả 0
+  PART5: number | null;
   PART6: number | null;
   PART7: number | null;
 }
-
-// ─── GET /api/analytics/overview ──────────────────────────────────────────────
 
 export interface OverviewResponse {
   totalExams: number;
@@ -16,11 +12,10 @@ export interface OverviewResponse {
   accuracyByPart: AccuracyByPart;
 }
 
-// ─── GET /api/analytics/progress ──────────────────────────────────────────────
 
 export interface WeeklyProgress {
-  weekStart: string;            // ISO date string — start of week (Monday)
-  avgScore: number | null;      // null nếu tuần không có bài thi — KHÔNG trả 0
+  weekStart: string;
+  avgScore: number | null;
   examCount: number;
   accuracyByPart: AccuracyByPart;
 }
@@ -29,15 +24,13 @@ export interface ProgressResponse {
   weekly: WeeklyProgress[];
 }
 
-// ─── GET /api/analytics/topics ────────────────────────────────────────────────
-
 export interface TopicStat {
   topic: string;
   totalQ: number;
   correctQ: number;
-  accuracy: number; // 0–100, rounded integer
+  accuracy: number;
 }
 
 export interface TopicsResponse {
-  topics: TopicStat[]; // sorted accuracy ASC — yếu nhất lên đầu
+  topics: TopicStat[];
 }

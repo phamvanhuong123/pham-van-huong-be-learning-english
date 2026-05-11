@@ -1,5 +1,5 @@
 export interface AccuracyByPart {
-  PART5: number | null; // null nếu chưa làm, không trả 0
+  PART5: number | null;
   PART6: number | null;
   PART7: number | null;
 }

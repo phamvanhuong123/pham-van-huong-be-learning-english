@@ -8,11 +8,12 @@ import {
   sendPasswordChangedEmail,
   EmailDeliveryError,
 } from './emailService';
+import { StatusCodes } from 'http-status-codes';
 
 export const registerUser = async (data: any) => {
   const existingUser = await prisma.user.findUnique({ where: { email: data.email } });
   if (existingUser) {
-    throw new ApiError("Email đã được sử dụng", 409);
+    throw new ApiError("Email đã được sử dụng", StatusCodes.CONFLICT);
   }
 
   const passwordHash = await bcrypt.hash(data.password, 10);
@@ -39,7 +40,7 @@ export const registerUser = async (data: any) => {
   } catch (err) {
     if (err instanceof EmailDeliveryError) {
       await prisma.user.delete({ where: { id: user.id } });
-      throw new ApiError("Không thể gửi email xác thực. Vui lòng thử lại sau.", 503);
+      throw new ApiError("Không thể gửi email xác thực. Vui lòng thử lại sau.", StatusCodes.SERVICE_UNAVAILABLE);
     }
     throw err;
   }
@@ -57,7 +58,7 @@ export const verifyEmail = async (token: string) => {
   });
 
   if (!user) {
-    throw new ApiError("Token không hợp lệ hoặc đã hết hạn", 400);
+    throw new ApiError("Token không hợp lệ hoặc đã hết hạn", StatusCodes.BAD_REQUEST);
   }
 
   await prisma.user.update({
@@ -74,20 +75,20 @@ export const verifyEmail = async (token: string) => {
 export const loginUser = async (data: any) => {
   const user = await prisma.user.findUnique({ where: { email: data.email } });
   if (!user) {
-    throw new ApiError("Email hoặc mật khẩu không đúng", 401);
+    throw new ApiError("Email hoặc mật khẩu không đúng", StatusCodes.BAD_REQUEST);
   }
 
   const isPasswordValid = await bcrypt.compare(data.password, user.passwordHash);
   if (!isPasswordValid) {
-    throw new ApiError("Email hoặc mật khẩu không đúng", 401);
+    throw new ApiError("Email hoặc mật khẩu không đúng", StatusCodes.BAD_REQUEST);
   }
 
   if (user.isBanned) {
-    throw new ApiError("Tài khoản đã bị khóa", 403);
+    throw new ApiError("Tài khoản đã bị khóa", StatusCodes.FORBIDDEN);
   }
 
   if (!user.emailVerified) {
-    throw new ApiError("Tài khoản chưa xác thực email", 403);
+    throw new ApiError("Tài khoản chưa xác thực email", StatusCodes.FORBIDDEN);
   }
 
   return user;
@@ -99,8 +100,6 @@ export const getUserById = async (userId: string) => {
 
 export const forgotPassword = async (email: string) => {
   const user = await prisma.user.findUnique({ where: { email } });
-
-  // Luôn trả về true dù email có tồn tại hay không (tránh user enumeration attack)
   if (user) {
     const { token, hashedToken } = generateRandomToken();
     await prisma.user.update({
@@ -110,8 +109,6 @@ export const forgotPassword = async (email: string) => {
         resetPasswordTokenExpires: new Date(Date.now() + 60 * 60 * 1000), // 1 giờ
       }
     });
-
-    // Gửi email đặt lại mật khẩu (token gốc, chưa hash)
     await sendResetPasswordEmail({
       to: user.email,
       name: user.name ?? user.email,
@@ -132,7 +129,7 @@ export const resetPassword = async (data: any) => {
   });
 
   if (!user) {
-    throw new ApiError("Token không hợp lệ hoặc đã hết hạn", 400);
+    throw new ApiError("Token không hợp lệ hoặc đã hết hạn", StatusCodes.BAD_REQUEST);
   }
 
   const passwordHash = await bcrypt.hash(data.newPassword, 10);

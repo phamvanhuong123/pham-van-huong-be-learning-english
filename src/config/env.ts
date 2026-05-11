@@ -11,8 +11,7 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string(),
   DATABASE_URL: z.string(),
 
-  // ── Email / SMTP ────────────────────────────────────────────────
-  // Để trống trong dev → tự động dùng Ethereal test account
+
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z
     .string()
@@ -20,9 +19,8 @@ const envSchema = z.object({
     .transform((v) => (v ? parseInt(v, 10) : 587)),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
-  SMTP_FROM: z.string().optional(), // Ví dụ: "TOEIC Master <noreply@yourapp.com>"
+  SMTP_FROM: z.string().optional(),
 
-  // ── Cloudinary ──────────────────────────────────────────────────
   CLOUDINARY_CLOUD_NAME: z.string().optional(),
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
@@ -31,12 +29,12 @@ const envSchema = z.object({
 const _env = envSchema.safeParse(process.env);
 
 if (!_env.success) {
-  console.error("❌ Invalid environment variables:", _env.error.format());
+  console.error("Invalid environment variables:", _env.error.format());
   throw new Error("Invalid environment variables");
 }
 
 export const env = _env.data;
 
 if (env.NODE_ENV === 'production' && env.JWT_ACCESS_SECRET.length < 32) {
-  throw new Error("❌ JWT_ACCESS_SECRET must be at least 32 characters long in production");
+  throw new Error("JWT_ACCESS_SECRET must be at least 32 characters long in production");
 }

@@ -3,8 +3,6 @@ import { StatusCodes } from 'http-status-codes';
 import ApiError from '../utils/ApiError';
 import * as analyticsService from '../services/analyticsService';
 
-// ─── GET /api/analytics/overview ──────────────────────────────────────────────
-
 export const getOverview = async (
   req: Request,
   res: Response,
@@ -18,8 +16,6 @@ export const getOverview = async (
     next(error);
   }
 };
-
-// ─── GET /api/analytics/progress ──────────────────────────────────────────────
 
 export const getProgress = async (
   req: Request,
@@ -39,8 +35,6 @@ export const getProgress = async (
     next(error);
   }
 };
-
-// ─── GET /api/analytics/topics ────────────────────────────────────────────────
 
 export const getTopics = async (
   req: Request,

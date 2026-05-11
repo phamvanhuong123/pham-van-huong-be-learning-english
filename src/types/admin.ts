@@ -120,17 +120,15 @@ export interface QuestionUpdateBody {
   status?: QuestionStatus;
 }
 
-// ─── Exams ─────────────────────────────────────────────────────────────────
-
 export type ExamPart = 'PART5' | 'PART6' | 'PART7' | 'FULL';
-export type ExamType = 'FREE' | 'VIP'; // theo Prisma enum ExamType
+export type ExamType = 'FREE' | 'VIP';
 
 export interface ExamCreateBody {
   title: string;
   part: ExamPart;
-  difficulty: QuestionDifficulty; // EASY|MEDIUM|HARD → sẽ map sang Int trong service
-  type: ExamType;                 // FREE|VIP
-  duration: number; // phút
+  difficulty: QuestionDifficulty;
+  type: ExamType;
+  duration: number;
 }
 
 export interface ExamUpdateBody {
@@ -141,19 +139,15 @@ export interface ExamUpdateBody {
   duration?: number;
 }
 
-// ─── Notifications ─────────────────────────────────────────────────────────
-
 export interface BroadcastBody {
   title: string;
   body: string;
-  targetRole?: 'STANDARD' | 'VIP'; // undefined → gửi tất cả
+  targetRole?: 'STANDARD' | 'VIP';
 }
 
 export interface BroadcastResponse {
   sent: number;
 }
-
-// ─── Shared ────────────────────────────────────────────────────────────────
 
 export interface PaginationMeta {
   page: number;

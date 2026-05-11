@@ -171,3 +171,40 @@ export const passwordChangedTemplate = (params: {
   return baseTemplate(content, `Mật khẩu TOEIC Master của bạn đã được thay đổi`)
     .replace('{{CLIENT_URL}}', clientUrl);
 };
+
+export const vocabReminderTemplate = (params: {
+  name: string;
+  count: number;
+  clientUrl: string;
+}) => {
+  const { name, count, clientUrl } = params;
+  const practiceUrl = `${clientUrl}/dashboard/vocab/practice`;
+  const content = `
+    <span class="badge badge-teal">Nhắc nhở học tập</span>
+    <h1 class="title" style="margin-top:16px;">Đừng quên ôn từ vựng hôm nay! 📚</h1>
+    <p class="text">
+      Xin chào <strong>${name}</strong>, theo lịch SM-2 của bạn, hôm nay bạn có
+      <strong style="color:#2563EB;">${count} từ vựng</strong> cần ôn tập.
+    </p>
+    <div class="token-box">
+      <p style="margin:0;font-size:13px;color:#64748B;">Từ cần ôn hôm nay</p>
+      <p style="margin:6px 0 0;font-size:40px;font-weight:800;color:#2563EB;line-height:1;">${count}</p>
+      <p style="margin:4px 0 0;font-size:13px;color:#64748B;">từ vựng</p>
+    </div>
+    <p class="text">
+      Duy trì thói quen ôn tập mỗi ngày giúp bạn ghi nhớ lâu hơn và đạt điểm cao trong kỳ thi TOEIC.
+      Chỉ cần <strong>5–10 phút</strong> là xong!
+    </p>
+    <div class="btn-container">
+      <a href="${practiceUrl}" class="btn btn-primary">🚀 Ôn từ vựng ngay</a>
+    </div>
+    <hr class="divider" />
+    <p class="note">
+      📈 Hệ thống SM-2 tự động điều chỉnh lịch ôn tập dựa trên mức độ ghi nhớ của bạn.<br />
+      Bỏ qua ngày hôm nay có thể làm chậm tiến trình học tập.
+    </p>
+  `;
+  return baseTemplate(content, `Bạn có ${count} từ vựng cần ôn hôm nay — TOEIC Master`)
+    .replace('{{CLIENT_URL}}', clientUrl);
+};
+

@@ -3,12 +3,13 @@ import {
   verifyEmailTemplate,
   resetPasswordTemplate,
   passwordChangedTemplate,
+  vocabReminderTemplate,
 } from '../utils/emailTemplates';
+
 import { env } from '../config/env';
 
 const FROM = `"TOEIC Master" <${env.SMTP_FROM || env.SMTP_USER || 'noreply@toeicmaster.vn'}>`;
 
-/** Kiểu lỗi email nội bộ — không expose ra client */
 export class EmailDeliveryError extends Error {
   constructor(
     public readonly recipient: string,
@@ -21,20 +22,14 @@ export class EmailDeliveryError extends Error {
   }
 }
 
-/** Helper: ghi log kết quả sau khi gửi thành công */
 const logSent = (type: string, to: string, info: Awaited<ReturnType<Awaited<ReturnType<typeof getTransporter>>['sendMail']>>) => {
   const previewUrl = getPreviewUrl(info);
   if (previewUrl) {
-    console.log(`📧 [Email][${type}] Ethereal preview → ${previewUrl}`);
+    console.log(`[Email][${type}] Ethereal preview → ${previewUrl}`);
   } else {
-    console.log(`📧 [Email][${type}] Đã gửi tới ${to} — MessageId: ${info.messageId}`);
+    console.log(`[Email][${type}] Đã gửi tới ${to} — MessageId: ${info.messageId}`);
   }
 };
-
-/* ══════════════════════════════════════════════════════════════
-   1. Gửi email xác thực tài khoản (Register)
-   ⚠️  Throw EmailDeliveryError nếu thất bại → caller phải rollback
-══════════════════════════════════════════════════════════════ */
 export const sendVerificationEmail = async (params: {
   to: string;
   name: string;
@@ -54,16 +49,11 @@ export const sendVerificationEmail = async (params: {
     });
     logSent('verification', to, info);
   } catch (err) {
-    console.error(`❌ [Email][verification] Gửi tới ${to} thất bại:`, err);
-    // Ném lên để authService.registerUser rollback user vừa tạo
+    console.error(`[Email][verification] Gửi tới ${to} thất bại:`, err);
     throw new EmailDeliveryError(to, 'verification', err);
   }
 };
 
-/* ══════════════════════════════════════════════════════════════
-   2. Gửi email đặt lại mật khẩu (Forgot Password)
-   ℹ️  Không throw ra ngoài — lỗi chỉ ghi log (tránh lộ thông tin)
-══════════════════════════════════════════════════════════════ */
 export const sendResetPasswordEmail = async (params: {
   to: string;
   name: string;
@@ -83,15 +73,9 @@ export const sendResetPasswordEmail = async (params: {
     });
     logSent('reset-password', to, info);
   } catch (err) {
-    // Không throw — forgotPassword luôn trả 200 dù email có tồn tại hay không
-    console.error(`❌ [Email][reset-password] Gửi tới ${to} thất bại:`, err);
+    console.error(`[Email][reset-password] Gửi tới ${to} thất bại:`, err);
   }
 };
-
-/* ══════════════════════════════════════════════════════════════
-   3. Gửi email thông báo đổi mật khẩu thành công
-   ℹ️  Không throw ra ngoài — mật khẩu đã đổi, email chỉ là thông báo phụ
-══════════════════════════════════════════════════════════════ */
 export const sendPasswordChangedEmail = async (params: {
   to: string;
   name: string;
@@ -109,7 +93,27 @@ export const sendPasswordChangedEmail = async (params: {
     });
     logSent('password-changed', to, info);
   } catch (err) {
-    // Không throw — mật khẩu đã đổi thành công, email chỉ là thông báo bổ sung
-    console.error(`❌ [Email][password-changed] Gửi tới ${to} thất bại:`, err);
+    console.error(`[Email][password-changed] Gửi tới ${to} thất bại:`, err);
+  }
+};
+export const sendVocabReminderEmail = async (params: {
+  to: string;
+  name: string;
+  count: number;
+}) => {
+  const { to, name, count } = params;
+
+  try {
+    const transporter = await getTransporter();
+    const info = await transporter.sendMail({
+      from: FROM,
+      to,
+      subject: `Ôn từ vựng hôm nay: ${count} từ đang đợi bạn — TOEIC Master`,
+      html: vocabReminderTemplate({ name, count, clientUrl: env.CLIENT_URL }),
+      text: `Bạn có ${count} từ vựng cần ôn hôm nay trên TOEIC Master. Truy cập: ${env.CLIENT_URL}/dashboard/vocab/practice`,
+    });
+    logSent('vocab-reminder', to, info);
+  } catch (err) {
+    console.error(`[Email][vocab-reminder] Gửi tới ${to} thất bại:`, err);
   }
 };

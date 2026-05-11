@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import * as vocabService from '../services/vocabService';
 import ApiError from '../utils/ApiError';
 import { SM2Rating } from '../lib/sm2';
+import { StatusCodes } from 'http-status-codes';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const requireUser = (req: Request) => {
@@ -82,57 +83,52 @@ export const updateVocab = async (req: Request, res: Response, next: NextFunctio
   }
 };
 
-// ─── DELETE /api/vocab/bulk ────────────────────────────────────────────────
-// NOTE: This route MUST be registered before /:vocabId in router
+
 export const bulkDeleteVocab = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = requireUser(req);
     const { ids } = req.body as { ids?: unknown };
 
     if (!Array.isArray(ids) || ids.length === 0) {
-      throw new ApiError('ids phải là một mảng không rỗng', 400);
+      throw new ApiError('ids phải là một mảng không rỗng', StatusCodes.BAD_REQUEST);
     }
 
     if (!ids.every((id) => typeof id === 'string')) {
-      throw new ApiError('Tất cả ids phải là string', 400);
+      throw new ApiError('Tất cả ids phải là string', StatusCodes.BAD_REQUEST);
     }
 
     const result = await vocabService.bulkDeleteVocab(userId, ids as string[]);
-    res.status(200).json(result);
+    res.status(StatusCodes.OK).json(result);
   } catch (error) {
     next(error);
   }
 };
 
-// ─── DELETE /api/vocab/:vocabId ────────────────────────────────────────────
 export const deleteVocab = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = requireUser(req);
     const vocabId = req.params.vocabId as string;
 
     if (!vocabId) {
-      throw new ApiError('vocabId không hợp lệ', 400);
+      throw new ApiError('vocabId không hợp lệ', StatusCodes.BAD_REQUEST);
     }
 
     await vocabService.deleteVocab(userId, vocabId);
-    res.status(204).send();
+    res.status(StatusCodes.NO_CONTENT).send();
   } catch (error) {
     next(error);
   }
 };
 
-// ─── POST /api/vocab/bulk-import ──────────────────────────────────────────
-// NOTE: This route MUST be registered before /:vocabId in router
 export const bulkImportVocab = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId, userRole } = requireUser(req);
     const { vocabs } = req.body as { vocabs?: unknown };
 
     if (!Array.isArray(vocabs) || vocabs.length === 0) {
-      throw new ApiError('vocabs phải là một mảng không rỗng', 400);
+      throw new ApiError('vocabs phải là một mảng không rỗng', StatusCodes.BAD_REQUEST);
     }
 
-    // Validate each item
     for (const item of vocabs) {
       if (
         typeof item !== 'object' ||
@@ -142,7 +138,7 @@ export const bulkImportVocab = async (req: Request, res: Response, next: NextFun
       ) {
         throw new ApiError(
           'Mỗi từ phải có cả word (string) và meaning (string)',
-          400
+          StatusCodes.BAD_REQUEST
         );
       }
     }
@@ -153,25 +149,22 @@ export const bulkImportVocab = async (req: Request, res: Response, next: NextFun
       vocabs as vocabService.BulkImportItem[]
     );
 
-    res.status(200).json(result);
+    res.status(StatusCodes.OK).json(result);
   } catch (error) {
     next(error);
   }
 };
 
-// ─── GET /api/vocab/due ────────────────────────────────────────────────────
-// NOTE: This route MUST be registered before /:vocabId in router
 export const getDueVocabs = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = requireUser(req);
     const result = await vocabService.getDueVocabs(userId);
-    res.status(200).json(result);
+    res.status(StatusCodes.OK).json(result);
   } catch (error) {
     next(error);
   }
 };
 
-// ─── POST /api/vocab/:vocabId/review ──────────────────────────────────────
 export const reviewVocab = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId } = requireUser(req);
@@ -179,18 +172,18 @@ export const reviewVocab = async (req: Request, res: Response, next: NextFunctio
     const { rating } = req.body as { rating?: unknown };
 
     if (!vocabId) {
-      throw new ApiError('vocabId không hợp lệ', 400);
+      throw new ApiError('vocabId không hợp lệ', StatusCodes.BAD_REQUEST);
     }
 
     if (rating === undefined || rating === null || ![0, 1, 2, 3].includes(Number(rating))) {
       throw new ApiError(
         'rating không hợp lệ. Phải là 0 (Again), 1 (Hard), 2 (Good), hoặc 3 (Easy)',
-        400
+        StatusCodes.BAD_REQUEST
       );
     }
 
     const result = await vocabService.reviewVocab(userId, vocabId, Number(rating) as SM2Rating);
-    res.status(200).json(result);
+    res.status(StatusCodes.OK).json(result);
   } catch (error) {
     next(error);
   }

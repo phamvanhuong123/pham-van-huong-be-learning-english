@@ -13,6 +13,10 @@ import dashboardRoutes from './routes/dashboard.routes';
 import profileRoutes from './routes/profile.routes';
 import analyticsRoutes from './routes/analytics.routes';
 import adminRoutes from './routes/admin.routes';
+import notificationRoutes from './routes/notification.routes';
+
+import './jobs/sm2Reminder';
+
 
 import cookieParser from 'cookie-parser';
 
@@ -65,6 +69,8 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/notifications', notificationRoutes);
+
 
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });

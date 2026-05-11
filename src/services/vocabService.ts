@@ -1,12 +1,9 @@
 import prisma from '../config/database';
 import ApiError from '../utils/ApiError';
 import { calculateSM2, SM2Rating } from '../lib/sm2';
-
-// ─── Constants ───────────────────────────────────────────────────────────────
+import { StatusCodes } from 'http-status-codes';
 const STANDARD_VOCAB_LIMIT = 50;
 const STANDARD_WARN_THRESHOLD = 45;
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 export interface VocabFilter {
   status?: string;
   topic?: string;
@@ -28,7 +25,6 @@ export interface BulkImportResult {
   skippedWords: string[];
 }
 
-// ─── addVocab (existing, auto-creates schedule) ───────────────────────────────
 export const addVocab = async (
   userId: string,
   userRole: string,
@@ -37,21 +33,19 @@ export const addVocab = async (
 ) => {
   const normalizedWord = word.trim().toLowerCase();
 
-  // Check duplicate
   const existingVocab = await prisma.vocab.findFirst({
     where: { userId, word: normalizedWord },
   });
   if (existingVocab) {
-    throw new ApiError('Từ này đã có trong Vocab của bạn', 409);
+    throw new ApiError('Từ này đã có trong Vocab của bạn', StatusCodes.CONFLICT);
   }
 
-  // Enforce STANDARD limit
   if (userRole === 'STANDARD') {
     const count = await prisma.vocab.count({ where: { userId } });
     if (count >= STANDARD_VOCAB_LIMIT) {
       throw new ApiError(
         'Đã đạt giới hạn 50 từ. Nâng cấp VIP để lưu không giới hạn!',
-        403,
+        StatusCodes.FORBIDDEN,
         'VOCAB_LIMIT_REACHED'
       );
     }
@@ -72,7 +66,6 @@ export const addVocab = async (
   return vocab;
 };
 
-// ─── getVocabs ────────────────────────────────────────────────────────────────
 export const getVocabs = async (userId: string, userRole: string, filter: VocabFilter) => {
   const { status, topic, search, page = 1, limit = 20 } = filter;
   const skip = (page - 1) * limit;
@@ -103,8 +96,6 @@ export const getVocabs = async (userId: string, userRole: string, filter: VocabF
     }),
     prisma.vocab.count({ where }),
   ]);
-
-  // limitInfo for Standard users
   const usedCount = await prisma.vocab.count({ where: { userId } });
   const limitInfo = {
     used: usedCount,
@@ -115,7 +106,6 @@ export const getVocabs = async (userId: string, userRole: string, filter: VocabF
   return { vocabs, total, limitInfo };
 };
 
-// ─── updateVocab ──────────────────────────────────────────────────────────────
 export const updateVocab = async (
   userId: string,
   vocabId: string,
@@ -123,7 +113,7 @@ export const updateVocab = async (
 ) => {
   const vocab = await prisma.vocab.findFirst({ where: { id: vocabId, userId } });
   if (!vocab) {
-    throw new ApiError('Không tìm thấy từ vựng hoặc bạn không có quyền chỉnh sửa', 404);
+    throw new ApiError('Không tìm thấy từ vựng hoặc bạn không có quyền chỉnh sửa', StatusCodes.NOT_FOUND);
   }
 
   const updated = await prisma.vocab.update({
@@ -138,24 +128,21 @@ export const updateVocab = async (
   return updated;
 };
 
-// ─── deleteVocab ──────────────────────────────────────────────────────────────
+
 export const deleteVocab = async (userId: string, vocabId: string) => {
   const vocab = await prisma.vocab.findFirst({ where: { id: vocabId, userId } });
   if (!vocab) {
     throw new ApiError('Không tìm thấy từ vựng hoặc bạn không có quyền xóa', 404);
   }
 
-  // Schedule is deleted via cascade in Prisma schema
   await prisma.vocab.delete({ where: { id: vocabId } });
 };
 
-// ─── bulkDeleteVocab ──────────────────────────────────────────────────────────
 export const bulkDeleteVocab = async (userId: string, ids: string[]) => {
   if (!ids.length) {
-    throw new ApiError('Danh sách id không được rỗng', 400);
+    throw new ApiError('Danh sách id không được rỗng', StatusCodes.BAD_REQUEST);
   }
 
-  // Verify all ids belong to user — reject entirely if any is foreign
   const ownedCount = await prisma.vocab.count({
     where: { id: { in: ids }, userId },
   });
@@ -163,7 +150,7 @@ export const bulkDeleteVocab = async (userId: string, ids: string[]) => {
   if (ownedCount !== ids.length) {
     throw new ApiError(
       'Một hoặc nhiều từ không thuộc về bạn hoặc không tồn tại',
-      403,
+      StatusCodes.FORBIDDEN,
       'FOREIGN_VOCAB_ID'
     );
   }
@@ -174,19 +161,14 @@ export const bulkDeleteVocab = async (userId: string, ids: string[]) => {
 
   return { deleted: result.count };
 };
-
-// ─── bulkImportVocab ──────────────────────────────────────────────────────────
 export const bulkImportVocab = async (
   userId: string,
   userRole: string,
   items: BulkImportItem[]
 ): Promise<BulkImportResult> => {
-  // Current count to respect Standard limit
   const currentCount = await prisma.vocab.count({ where: { userId } });
   const availableSlots =
     userRole === 'STANDARD' ? Math.max(0, STANDARD_VOCAB_LIMIT - currentCount) : Infinity;
-
-  // Fetch all existing words for this user (for duplicate detection)
   const existingVocabs = await prisma.vocab.findMany({
     where: { userId },
     select: { word: true },
@@ -213,11 +195,9 @@ export const bulkImportVocab = async (
     }
 
     toImport.push({ ...item, word: normalizedWord });
-    existingWords.add(normalizedWord); // prevent in-batch duplicates
+    existingWords.add(normalizedWord);
     slotsUsed++;
   }
-
-  // Bulk create with nested schedule creation
   if (toImport.length > 0) {
     await Promise.all(
       toImport.map((item) =>
@@ -242,7 +222,6 @@ export const bulkImportVocab = async (
   };
 };
 
-// ─── getDueVocabs ─────────────────────────────────────────────────────────────
 export const getDueVocabs = async (userId: string) => {
   const now = new Date();
 
@@ -273,32 +252,29 @@ export const getDueVocabs = async (userId: string) => {
   return { dueVocabs, total: dueVocabs.length };
 };
 
-// ─── reviewVocab ──────────────────────────────────────────────────────────────
+
 export const reviewVocab = async (userId: string, vocabId: string, rating: SM2Rating) => {
-  // Verify ownership
   const vocab = await prisma.vocab.findFirst({
     where: { id: vocabId, userId },
     include: { schedule: true },
   });
 
   if (!vocab) {
-    throw new ApiError('Không tìm thấy từ vựng hoặc bạn không có quyền', 404);
+    throw new ApiError('Không tìm thấy từ vựng hoặc bạn không có quyền', StatusCodes.NOT_FOUND);
   }
 
   if (!vocab.schedule) {
-    throw new ApiError('Từ vựng chưa có lịch ôn tập', 500, 'MISSING_SCHEDULE');
+    throw new ApiError('Từ vựng chưa có lịch ôn tập', StatusCodes.INTERNAL_SERVER_ERROR, 'MISSING_SCHEDULE');
   }
 
   const currentSchedule = vocab.schedule;
 
-  // Calculate SM-2 next state
+
   const sm2Result = calculateSM2(rating, {
     ef: Number(currentSchedule.ef),
     interval: currentSchedule.interval,
     repetitions: currentSchedule.repetitions,
   });
-
-  // Update VocabSchedule
   const updatedSchedule = await prisma.vocabSchedule.update({
     where: { id: currentSchedule.id },
     data: {

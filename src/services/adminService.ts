@@ -1,9 +1,3 @@
-/**
- * Admin Service — Phase 6
- * Business logic cho tất cả Admin endpoints.
- * Dùng Prisma transaction để đảm bảo atomicity khi approve subscription.
- */
-
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import ApiError from '../utils/ApiError';
@@ -23,43 +17,37 @@ import type {
   BroadcastBody,
   BroadcastResponse,
 } from '../types/admin';
+import { StatusCodes } from 'http-status-codes';
 
 const FROM = `"TOEIC Master" <${env.SMTP_FROM || env.SMTP_USER || 'noreply@toeicmaster.vn'}>`;
 
-// ─── Plan → days mapping ────────────────────────────────────────────────────
 const PLAN_DAYS: Record<string, number> = {
   '1m': 30,
   '3m': 90,
   '12m': 365,
 };
 
-// ─── Difficulty label → Int (theo Prisma schema Exam.difficulty: Int) ────────
 const DIFFICULTY_MAP: Record<string, number> = {
   EASY: 1,
   MEDIUM: 2,
   HARD: 3,
 };
 
-// ─── Helper: gửi email không throw (fire & forget) ─────────────────────────
 const sendEmailSilent = async (to: string, subject: string, html: string, text: string) => {
   try {
     const transporter = await getTransporter();
     const info = await transporter.sendMail({ from: FROM, to, subject, html, text });
     const previewUrl = getPreviewUrl(info);
     if (previewUrl) {
-      console.log(`📧 [Admin][Email] Ethereal preview → ${previewUrl}`);
+      console.log(`[Admin][Email] Ethereal preview → ${previewUrl}`);
     } else {
-      console.log(`📧 [Admin][Email] Đã gửi tới ${to} — MessageId: ${info.messageId}`);
+      console.log(`[Admin][Email] Đã gửi tới ${to} — MessageId: ${info.messageId}`);
     }
   } catch (err) {
-    // Không throw — DB đã commit, email chỉ là side effect phụ
-    console.error(`❌ [Admin][Email] Gửi tới ${to} thất bại:`, err);
+    console.error(`[Admin][Email] Gửi tới ${to} thất bại:`, err);
   }
 };
 
-/* ══════════════════════════════════════════════════════════════
-   1. GET /api/admin/dashboard
-══════════════════════════════════════════════════════════════ */
 export const getAdminDashboard = async (): Promise<AdminDashboardResponse> => {
   const now = new Date();
   const startOf7DaysAgo = new Date(now);
@@ -73,7 +61,6 @@ export const getAdminDashboard = async (): Promise<AdminDashboardResponse> => {
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   thirtyDaysAgo.setHours(0, 0, 0, 0);
 
-  // Chạy song song tất cả queries
   const [totalUsers, vipUsers, examsToday, activeUsers7d, pendingSubscriptions, signups] =
     await Promise.all([
       prisma.user.count(),
@@ -93,11 +80,11 @@ export const getAdminDashboard = async (): Promise<AdminDashboardResponse> => {
   // Nhóm đăng ký theo ngày (30 ngày gần nhất)
   const signupMap = new Map<string, number>();
   for (const u of signups) {
-    const key = u.createdAt.toISOString().slice(0, 10); // 'YYYY-MM-DD'
+    const key = u.createdAt.toISOString().slice(0, 10); 
     signupMap.set(key, (signupMap.get(key) ?? 0) + 1);
   }
 
-  // Tạo array 30 ngày đầy đủ (ngày không có đăng ký → count = 0)
+
   const dailySignups: Array<{ date: string; count: number }> = [];
   for (let i = 29; i >= 0; i--) {
     const d = new Date(now);
@@ -110,13 +97,10 @@ export const getAdminDashboard = async (): Promise<AdminDashboardResponse> => {
     stats: { totalUsers, vipUsers, examsToday, activeUsers7d },
     dailySignups,
     pendingSubscriptions,
-    openReports: 0, // placeholder — chưa có Report model trong schema
+    openReports: 0, 
   };
 };
 
-/* ══════════════════════════════════════════════════════════════
-   2. GET /api/admin/users
-══════════════════════════════════════════════════════════════ */
 export const getAdminUsers = async (query: {
   role?: string;
   status?: string;
@@ -128,7 +112,6 @@ export const getAdminUsers = async (query: {
   const limit = Math.min(100, Math.max(1, parseInt(query.limit ?? '20', 10)));
   const skip = (page - 1) * limit;
 
-  // Build where clause
   const where: Prisma.UserWhereInput = {};
 
   if (query.role && ['STANDARD', 'VIP', 'ADMIN'].includes(query.role)) {
@@ -188,24 +171,18 @@ export const getAdminUsers = async (query: {
     },
   };
 };
-
-/* ══════════════════════════════════════════════════════════════
-   3. PATCH /api/admin/users/:userId
-   Guard: Admin không được sửa chính mình
-══════════════════════════════════════════════════════════════ */
 export const updateUser = async (
   targetUserId: string,
   requestingAdminId: string,
   body: UserUpdateBody,
 ): Promise<void> => {
-  // ⛔ Edge case: admin tự sửa mình
   if (targetUserId === requestingAdminId) {
-    throw new ApiError('Không thể sửa tài khoản của chính mình', 403);
+    throw new ApiError('Không thể sửa tài khoản của chính mình', StatusCodes.FORBIDDEN);
   }
 
   const user = await prisma.user.findUnique({ where: { id: targetUserId } });
   if (!user) {
-    throw new ApiError('Người dùng không tồn tại', 404);
+    throw new ApiError('Người dùng không tồn tại', StatusCodes.NOT_FOUND);
   }
 
   const updateData: Parameters<typeof prisma.user.update>[0]['data'] = {};
@@ -215,10 +192,6 @@ export const updateUser = async (
   }
   if (body.isBanned !== undefined) {
     updateData.isBanned = body.isBanned;
-    // Nếu unban, clear vipExpiresAt không cần thiết nhưng đảm bảo nhất quán
-    if (!body.isBanned) {
-      // không reset vipExpiresAt — chỉ clear ban
-    }
   }
   if (body.vipExpiresAt !== undefined) {
     updateData.vipExpiresAt = body.vipExpiresAt ? new Date(body.vipExpiresAt) : null;
@@ -227,9 +200,6 @@ export const updateUser = async (
   await prisma.user.update({ where: { id: targetUserId }, data: updateData });
 };
 
-/* ══════════════════════════════════════════════════════════════
-   4. GET /api/admin/subscriptions
-══════════════════════════════════════════════════════════════ */
 export const getAdminSubscriptions = async (query: {
   status?: string;
   page?: string;
@@ -269,7 +239,7 @@ export const getAdminSubscriptions = async (query: {
       status: s.status,
       plan: s.plan as '1m' | '3m' | '12m' | null,
       proofImageUrl: s.proofUrl ?? null,
-      rejectReason: null, // schema không có rejectReason field
+      rejectReason: null, 
       createdAt: s.createdAt.toISOString(),
       updatedAt: s.updatedAt.toISOString(),
     })),
@@ -282,21 +252,15 @@ export const getAdminSubscriptions = async (query: {
   };
 };
 
-/* ══════════════════════════════════════════════════════════════
-   5. PATCH /api/admin/subscriptions/:subId
-   APPROVED: Prisma transaction → update sub + update user + send email
-   REJECTED: update sub + send email
-══════════════════════════════════════════════════════════════ */
 export const updateSubscription = async (
   subId: string,
   body: SubscriptionUpdateBody,
 ): Promise<void> => {
-  // Validate body
   if (body.status === 'APPROVED' && !body.plan) {
-    throw new ApiError('Vui lòng chọn gói VIP khi phê duyệt (1m, 3m, 12m)', 400);
+    throw new ApiError('Vui lòng chọn gói VIP khi phê duyệt (1m, 3m, 12m)', StatusCodes.BAD_REQUEST);
   }
   if (body.status === 'REJECTED' && !body.rejectReason?.trim()) {
-    throw new ApiError('Vui lòng nhập lý do từ chối', 400);
+    throw new ApiError('Vui lòng nhập lý do từ chối', StatusCodes.BAD_REQUEST);
   }
 
   const sub = await prisma.subscription.findUnique({
@@ -304,22 +268,21 @@ export const updateSubscription = async (
     include: { user: { select: { id: true, name: true, email: true } } },
   });
   if (!sub) {
-    throw new ApiError('Không tìm thấy yêu cầu VIP này', 404);
+    throw new ApiError('Không tìm thấy yêu cầu VIP này', StatusCodes.NOT_FOUND);
   }
   if (sub.status !== 'PENDING') {
-    throw new ApiError('Yêu cầu này đã được xử lý trước đó', 409);
+    throw new ApiError('Yêu cầu này đã được xử lý trước đó', StatusCodes.CONFLICT);
   }
 
   if (body.status === 'APPROVED') {
     const days = PLAN_DAYS[body.plan!];
     if (!days) {
-      throw new ApiError('Gói VIP không hợp lệ', 400);
+      throw new ApiError('Gói VIP không hợp lệ', StatusCodes.BAD_REQUEST);
     }
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + days);
     const startsAt = new Date();
 
-    // ⚡ Transaction: commit cả 2 DB operation hoặc rollback cả 2
     await prisma.$transaction([
       prisma.subscription.update({
         where: { id: subId },
@@ -368,29 +331,23 @@ export const updateSubscription = async (
   }
 };
 
-/* ══════════════════════════════════════════════════════════════
-   6. POST /api/admin/questions
-   Guard: Đúng 1 option isCorrect=true
-══════════════════════════════════════════════════════════════ */
 export const createQuestion = async (body: QuestionCreateBody) => {
-  // Validate isCorrect
   const correctCount = body.options.filter((o) => o.isCorrect).length;
   if (correctCount !== 1) {
     throw new ApiError(
       `Phải có đúng 1 đáp án đúng. Hiện tại có ${correctCount} đáp án được đánh dấu đúng.`,
-      400,
+      StatusCodes.BAD_REQUEST,
     );
   }
   if (body.explanation.trim().length < 20) {
-    throw new ApiError('Phần giải thích phải có ít nhất 20 ký tự', 400);
+    throw new ApiError('Phần giải thích phải có ít nhất 20 ký tự', StatusCodes.BAD_REQUEST);
   }
 
   const exam = await prisma.exam.findUnique({ where: { id: body.examId } });
   if (!exam) {
-    throw new ApiError('Không tìm thấy đề thi', 404);
+    throw new ApiError('Không tìm thấy đề thi', StatusCodes.NOT_FOUND);
   }
 
-  // Map difficulty string → int theo schema
   const question = await prisma.question.create({
     data: {
       examId: body.examId,
@@ -416,7 +373,7 @@ export const createQuestion = async (body: QuestionCreateBody) => {
 export const updateQuestion = async (questionId: string, body: QuestionUpdateBody) => {
   const question = await prisma.question.findUnique({ where: { id: questionId } });
   if (!question) {
-    throw new ApiError('Không tìm thấy câu hỏi', 404);
+    throw new ApiError('Không tìm thấy câu hỏi', StatusCodes.NOT_FOUND);
   }
 
   if (body.options !== undefined) {
@@ -490,20 +447,17 @@ export const createExam = async (body: ExamCreateBody) => {
       difficulty: difficultyInt,
       type: body.type,
       duration: body.duration,
-      isPublished: false, // default draft
+      isPublished: false,
     },
   });
 
   return exam;
 };
 
-/* ══════════════════════════════════════════════════════════════
-   10. PATCH /api/admin/exams/:id
-══════════════════════════════════════════════════════════════ */
 export const updateExam = async (examId: string, body: ExamUpdateBody) => {
   const exam = await prisma.exam.findUnique({ where: { id: examId } });
   if (!exam) {
-    throw new ApiError('Không tìm thấy đề thi', 404);
+    throw new ApiError('Không tìm thấy đề thi', StatusCodes.NOT_FOUND);
   }
 
   const updateData: Parameters<typeof prisma.exam.update>[0]['data'] = {};
@@ -517,11 +471,6 @@ export const updateExam = async (examId: string, body: ExamUpdateBody) => {
   return prisma.exam.update({ where: { id: examId }, data: updateData });
 };
 
-/* ══════════════════════════════════════════════════════════════
-   11. POST /api/admin/notifications/broadcast
-   Logic: targetRole undefined → tất cả, 'STANDARD' → chỉ STANDARD, 'VIP' → chỉ VIP
-   Edge case: không có user match → sent = 0
-══════════════════════════════════════════════════════════════ */
 export const broadcastNotification = async (body: BroadcastBody): Promise<BroadcastResponse> => {
   const where: Prisma.UserWhereInput = {};
 
@@ -530,14 +479,11 @@ export const broadcastNotification = async (body: BroadcastBody): Promise<Broadc
   } else if (body.targetRole === 'VIP') {
     where.role = 'VIP';
   }
-  // targetRole undefined → where rỗng → tất cả user
 
   const users = await prisma.user.findMany({
     where,
     select: { id: true },
   });
-
-  // Edge case: không có user nào match → vẫn 200 { sent: 0 }
   if (users.length === 0) {
     return { sent: 0 };
   }

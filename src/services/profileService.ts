@@ -1,3 +1,4 @@
+import { StatusCodes } from 'http-status-codes';
 import prisma from '../config/database';
 import { ProfileResponse, UpdateProfileBody } from '../types/profile';
 import ApiError from '../utils/ApiError';
@@ -9,7 +10,7 @@ export const getProfile = async (userId: string): Promise<ProfileResponse> => {
   });
 
   if (!user) {
-    throw new ApiError('User not found', 404);
+    throw new ApiError('User not found', StatusCodes.NOT_FOUND);
   }
 
   return {
@@ -42,7 +43,7 @@ export const updateProfile = async (
     today.setHours(0, 0, 0, 0);
     
     if (date < today) {
-      throw new ApiError('Exam date cannot be in the past', 400);
+      throw new ApiError('Exam date cannot be in the past', StatusCodes.BAD_REQUEST);
     }
   }
 
@@ -78,18 +79,16 @@ export const updateAvatar = async (
   });
 
   if (!user) {
-    throw new ApiError('User not found', 404);
+    throw new ApiError('User not found', StatusCodes.NOT_FOUND);
   }
 
-  // 1. Upload new image to Cloudinary
   let uploadResult;
   try {
     uploadResult = await uploadImage(file, 'avatars');
   } catch (error) {
-    throw new ApiError('Failed to upload image to Cloudinary', 500);
+    throw new ApiError('Failed to upload image to Cloudinary', StatusCodes.INTERNAL_SERVER_ERROR);
   }
 
-  // 2. Delete old image from Cloudinary if exists
   if (user.avatarUrl) {
     const oldPublicId = getPublicIdFromUrl(user.avatarUrl);
     if (oldPublicId) {
@@ -97,7 +96,6 @@ export const updateAvatar = async (
     }
   }
 
-  // 3. Update DB with new URL
   await prisma.user.update({
     where: { id: userId },
     data: { avatarUrl: uploadResult.secure_url },

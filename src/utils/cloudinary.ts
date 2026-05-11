@@ -25,32 +25,15 @@ export const deleteImage = async (publicId: string) => {
     console.error('Error deleting image from Cloudinary:', error);
   }
 };
-
-/**
- * Extracts public_id from a Cloudinary URL.
- * Example: https://res.cloudinary.com/demo/image/upload/v1571218039/folder/sample.jpg
- * Returns: folder/sample
- */
 export const getPublicIdFromUrl = (url: string) => {
   try {
     const parts = url.split('/');
     const lastPart = parts[parts.length - 1];
-    const folderPart = parts[parts.length - 2];
-    
-    // Check if there's a version number (v12345678)
+    // const folderPart = parts[parts.length - 2];
     const fileNameWithExt = lastPart.split('.')[0];
-    
-    // If there's a folder, we might need more logic. 
-    // Usually, it's safer to store the public_id in the DB, 
-    // but the schema doesn't have it.
-    // Let's assume a standard path for now.
-    // A better way is to regex it.
-    
     const regex = /\/v\d+\/([^.]+)\./;
     const match = url.match(regex);
     if (match && match[1]) return match[1];
-    
-    // Fallback logic
     return fileNameWithExt;
   } catch (error) {
     return null;
