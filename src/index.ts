@@ -11,6 +11,8 @@ import resultRoutes from './routes/result.routes';
 import vocabRoutes from './routes/vocab.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import profileRoutes from './routes/profile.routes';
+import analyticsRoutes from './routes/analytics.routes';
+import adminRoutes from './routes/admin.routes';
 
 import cookieParser from 'cookie-parser';
 
@@ -61,8 +63,8 @@ app.use('/api/results', resultRoutes);
 app.use('/api/vocab', vocabRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/profile', profileRoutes);
-// app.use('/api/users', userRoutes);
-// app.use('/api/admin', adminRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
