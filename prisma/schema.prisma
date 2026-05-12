@@ -6,38 +6,186 @@ datasource db {
   provider = "postgresql"
 }
 
-
-
-enum Role {
-  STANDARD
-  VIP
-  ADMIN
-}
-
 model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
-  passwordHash  String
-  name          String?
-  avatarUrl     String?
-  role          Role      @default(STANDARD)
-  targetScore   Int?
-  examDate      DateTime?
-  emailVerified             Boolean   @default(false)
-  isBanned                  Boolean   @default(false)
+  id                        String         @id @default(uuid())
+  email                     String         @unique
+  passwordHash              String
+  name                      String?
+  avatarUrl                 String?
+  role                      Role           @default(STANDARD)
+  targetScore               Int?
+  examDate                  DateTime?
+  emailVerified             Boolean        @default(false)
+  isBanned                  Boolean        @default(false)
   vipExpiresAt              DateTime?
   verificationToken         String?
   verificationTokenExpires  DateTime?
   resetPasswordToken        String?
   resetPasswordTokenExpires DateTime?
+  createdAt                 DateTime       @default(now())
+  updatedAt                 DateTime       @updatedAt
+  notifications             Notification[]
+  results                   Result[]
+  subscriptions             Subscription[]
+  vocabs                    Vocab[]
+}
 
+model Exam {
+  id            String     @id @default(uuid())
+  title         String
+  part          ExamPart
+  difficulty    Difficulty @default(MEDIUM)
+  type          ExamType   @default(FREE)
+  duration      Int
+  isPublished   Boolean    @default(false)
+  parentExamId  String?    // null = đề độc lập hoặc đề FULL; khác null = đề con thuộc đề FULL
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  questions     Question[]
+  passageGroups PassageGroup[]
   results       Result[]
-  vocabs        Vocab[]
-  subscriptions Subscription[]
-  notifications Notification[]
+  parentExam    Exam?      @relation("ExamComponents", fields: [parentExamId], references: [id])
+  childExams    Exam[]     @relation("ExamComponents")
+}
 
+model Question {
+  id             String         @id @default(uuid())
+  examId         String
+  passageGroupId String?        // Liên kết với nhóm bài đọc (cho Part 6/7)
+  order          Int
+  questionText   String
+  difficulty     Difficulty     @default(MEDIUM)
+  grammarTopic   String?
+  explanation    String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  options        Option[]
+  exam           Exam           @relation(fields: [examId], references: [id], onDelete: Cascade)
+  passageGroup   PassageGroup?  @relation(fields: [passageGroupId], references: [id], onDelete: SetNull)
+  resultDetails  ResultDetail[]
+}
+
+model PassageGroup {
+  id        String    @id @default(uuid())
+  examId    String
+  order     Int       // Thứ tự của cụm này trong đề (VD: Cụm 1, cụm 2...)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  exam      Exam      @relation(fields: [examId], references: [id], onDelete: Cascade)
+  passages  Passage[]
+  questions Question[]
+}
+
+model Passage {
+  id             String       @id @default(uuid())
+  passageGroupId String
+  content        String       @db.Text
+  order          Int          // Thứ tự đoạn văn trong nhóm (VD: Đoạn 1, đoạn 2 của Triple passage)
+  mediaUrl       String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  passageGroup   PassageGroup @relation(fields: [passageGroupId], references: [id], onDelete: Cascade)
+}
+
+model Option {
+  id            String         @id @default(uuid())
+  questionId    String
+  label         OptionLabel
+  text          String
+  isCorrect     Boolean
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  question      Question       @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  resultDetails ResultDetail[]
+}
+
+model Result {
+  id          String         @id @default(uuid())
+  userId      String
+  examId      String
+  score       Int
+  totalQ      Int
+  correctQ    Int
+  timeTaken   Int
+  submittedAt DateTime       @default(now())
+  exam        Exam           @relation(fields: [examId], references: [id], onDelete: Cascade)
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  details     ResultDetail[]
+
+  @@index([userId])
+}
+
+model ResultDetail {
+  id               String   @id @default(uuid())
+  resultId         String
+  questionId       String
+  selectedOptionId String?
+  isCorrect        Boolean
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  question         Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  result           Result   @relation(fields: [resultId], references: [id], onDelete: Cascade)
+  selectedOption   Option?  @relation(fields: [selectedOptionId], references: [id])
+}
+
+model Vocab {
+  id        String         @id @default(uuid())
+  userId    String
+  word      String
+  meaning   String
+  example   String?
+  topic     String?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schedule  VocabSchedule?
+
+  @@index([userId])
+}
+
+model VocabSchedule {
+  id           String      @id @default(uuid())
+  vocabId      String      @unique
+  ef           Float       @default(2.5)
+  interval     Int         @default(1)
+  repetitions  Int         @default(0)
+  nextReviewAt DateTime    @default(now())
+  status       VocabStatus @default(NEW)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  vocab        Vocab       @relation(fields: [vocabId], references: [id], onDelete: Cascade)
+}
+
+model Subscription {
+  id        String    @id @default(uuid())
+  userId    String
+  plan      String
+  status    SubStatus @default(PENDING)
+  proofUrl  String?
+  startsAt  DateTime?
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  body      String
+  isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+enum Role {
+  STANDARD
+  VIP
+  ADMIN
 }
 
 enum ExamPart {
@@ -52,106 +200,11 @@ enum ExamType {
   VIP
 }
 
-model Exam {
-  id          String   @id @default(uuid())
-  title       String
-  part        ExamPart
-  difficulty  Int
-  type        ExamType @default(FREE)
-  duration    Int // Duration in minutes or seconds, depending on logic
-  isPublished Boolean  @default(false)
-
-  questions Question[]
-  results   Result[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Question {
-  id           String  @id @default(uuid())
-  examId       String
-  exam         Exam    @relation(fields: [examId], references: [id], onDelete: Cascade)
-  order        Int
-  passage      String?
-  questionText String
-  grammarTopic String?
-  explanation  String?
-
-  options       Option[]
-  resultDetails ResultDetail[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
 enum OptionLabel {
   A
   B
   C
   D
-}
-
-model Option {
-  id         String      @id @default(uuid())
-  questionId String
-  question   Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  label      OptionLabel
-  text       String
-  isCorrect  Boolean
-
-  resultDetails ResultDetail[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Result {
-  id          String   @id @default(uuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  examId      String
-  exam        Exam     @relation(fields: [examId], references: [id], onDelete: Cascade)
-  score       Int
-  totalQ      Int
-  correctQ    Int
-  timeTaken   Int // In seconds
-  submittedAt DateTime @default(now())
-
-  details ResultDetail[]
-
-  @@index([userId])
-}
-
-model ResultDetail {
-  id               String   @id @default(uuid())
-  resultId         String
-  result           Result   @relation(fields: [resultId], references: [id], onDelete: Cascade)
-  questionId       String
-  question         Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  selectedOptionId String?
-  selectedOption   Option?  @relation(fields: [selectedOptionId], references: [id], onDelete: SetNull)
-  isCorrect        Boolean
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Vocab {
-  id      String  @id @default(uuid())
-  userId  String
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  word    String
-  meaning String
-  example String?
-  topic   String?
-
-  schedule VocabSchedule?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userId])
 }
 
 enum VocabStatus {
@@ -161,50 +214,14 @@ enum VocabStatus {
   MASTERED
 }
 
-model VocabSchedule {
-  id           String      @id @default(uuid())
-  vocabId      String      @unique
-  vocab        Vocab       @relation(fields: [vocabId], references: [id], onDelete: Cascade)
-  ef           Float       @default(2.5)
-  interval     Int         @default(1)
-  repetitions  Int         @default(0)
-  nextReviewAt DateTime    @default(now())
-  status       VocabStatus @default(NEW)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
 enum SubStatus {
   PENDING
   APPROVED
   REJECTED
 }
 
-model Subscription {
-  id        String    @id @default(uuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plan      String
-  status    SubStatus @default(PENDING)
-  proofUrl  String?
-  startsAt  DateTime?
-  expiresAt DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Notification {
-  id     String  @id @default(uuid())
-  userId String
-  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title  String
-  body   String
-  isRead Boolean @default(false)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userId])
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
 }

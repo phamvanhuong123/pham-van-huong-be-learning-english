@@ -19,6 +19,7 @@ import './jobs/sm2Reminder';
 
 
 import cookieParser from 'cookie-parser';
+import { StatusCodes } from 'http-status-codes';
 
 const app = express();
 
@@ -37,16 +38,28 @@ app.use(cors({
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
-  message: 'Quá nhiều yêu cầu từ IP này, vui lòng thử lại sau 15 phút.',
+   handler: (req, res) => {
+    res.status(StatusCodes.TOO_MANY_REQUESTS).json({
+      success: false,
+      statusCode: StatusCodes.TOO_MANY_REQUESTS,
+      message: 'Quá nhiều yêu cầu, vui lòng thử lại sau 15 phút.',
+    });
+  },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
-// Specific limit for auth routes: 5 requests per 15 minutes
+// Specific limit for auth routes: 100 requests per 15 minutes
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
-  message: 'Quá nhiều yêu cầu đăng nhập/đăng ký, vui lòng thử lại sau 15 phút.',
+  max: 100,
+  handler: (req, res) => {
+    res.status(StatusCodes.TOO_MANY_REQUESTS).json({
+      success: false,
+      statusCode: StatusCodes.TOO_MANY_REQUESTS,
+      message: 'Quá nhiều yêu cầu, vui lòng thử lại sau 15 phút.',
+    });
+  },
   standardHeaders: true,
   legacyHeaders: false,
 });

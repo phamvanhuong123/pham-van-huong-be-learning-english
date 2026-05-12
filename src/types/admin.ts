@@ -99,25 +99,38 @@ export interface QuestionOption {
 
 export interface QuestionCreateBody {
   examId: string;
+  passageGroupId?: string; // Liên kết với cụm bài đọc (nếu có)
   order: number;
-  passage?: string;
   questionText: string;
-  options: QuestionOption[];    // phải có đúng 1 isCorrect=true
-  explanation: string;          // min 20 ký tự
+  options: QuestionOption[];
+  explanation: string;
   grammarTopic: string;
   difficulty: QuestionDifficulty;
-  status?: QuestionStatus;      // default 'DRAFT'
+  status?: QuestionStatus;
 }
 
 export interface QuestionUpdateBody {
+  passageGroupId?: string;
   order?: number;
-  passage?: string;
   questionText?: string;
   options?: QuestionOption[];
   explanation?: string;
   grammarTopic?: string;
   difficulty?: QuestionDifficulty;
   status?: QuestionStatus;
+}
+
+export interface PassageCreateBody {
+  content: string;
+  order: number;
+  mediaUrl?: string;
+}
+
+export interface PassageGroupCreateBody {
+  examId: string;
+  order: number;
+  passages: PassageCreateBody[];
+  questions?: QuestionCreateBody[]; // Có thể tạo câu hỏi cùng lúc với cụm bài đọc
 }
 
 export type ExamPart = 'PART5' | 'PART6' | 'PART7' | 'FULL';
@@ -129,6 +142,8 @@ export interface ExamCreateBody {
   difficulty: QuestionDifficulty;
   type: ExamType;
   duration: number;
+  /** Chỉ dùng khi part = 'FULL'. Danh sách ID các đề con (Part5, Part6, Part7) */
+  componentExamIds?: string[];
 }
 
 export interface ExamUpdateBody {
@@ -147,6 +162,45 @@ export interface BroadcastBody {
 
 export interface BroadcastResponse {
   sent: number;
+}
+
+export interface AdminQuestionItem {
+  id: string;
+  examId: string;
+  examTitle?: string;
+  order: number;
+  passageGroupId: string | null;
+  passageGroup?: any;
+  questionText: string;
+  grammarTopic: string | null;
+  explanation: string | null;
+  difficulty: QuestionDifficulty;
+  options: QuestionOption[];
+  status?: QuestionStatus;
+  createdAt: string;
+}
+
+export interface AdminQuestionsResponse {
+  questions: AdminQuestionItem[];
+  pagination: PaginationMeta;
+}
+
+export interface AdminExamItem {
+  id: string;
+  title: string;
+  part: ExamPart;
+  difficulty: QuestionDifficulty;
+  type: ExamType;
+  duration: number;
+  isPublished: boolean;
+  questionCount: number;
+  parentExamId: string | null;
+  childExams?: { id: string; title: string; part: ExamPart }[];
+  createdAt: string;
+}
+
+export interface AdminExamsResponse {
+  exams: AdminExamItem[];
 }
 
 export interface PaginationMeta {

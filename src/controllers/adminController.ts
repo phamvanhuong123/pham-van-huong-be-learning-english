@@ -14,6 +14,7 @@ import type {
   ExamCreateBody,
   ExamUpdateBody,
   BroadcastBody,
+  PassageGroupCreateBody,
 } from '../types/admin';
 import { StatusCodes } from 'http-status-codes';
 
@@ -66,6 +67,25 @@ export const updateSubscription = async (req: Request, res: Response, next: Next
 
     await adminService.updateSubscription(subId, body);
     res.status(StatusCodes.OK).json({ message: 'Xử lý yêu cầu VIP thành công' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getQuestions = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { search, examId, difficulty, page, limit } = req.query as Record<string, string | undefined>;
+    const data = await adminService.getAdminQuestions({ search, examId, difficulty, page, limit });
+    res.status(StatusCodes.OK).json(data);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getExams = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const data = await adminService.getAdminExams();
+    res.status(StatusCodes.OK).json(data);
   } catch (error) {
     next(error);
   }
@@ -127,6 +147,35 @@ export const broadcastNotification = async (req: Request, res: Response, next: N
     const body = req.body as BroadcastBody;
     const result = await adminService.broadcastNotification(body);
     res.status(StatusCodes.OK).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getPassageGroups = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const examId = req.params.examId as string;
+    const groups = await adminService.getPassageGroupsByExam(examId);
+    res.status(StatusCodes.OK).json(groups);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const createPassageGroup = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const body = req.body as PassageGroupCreateBody;
+    const group = await adminService.createPassageGroup(body);
+    res.status(StatusCodes.CREATED).json(group);
+  } catch (error) {
+    next(error);
+  }
+};
+export const updatePassageGroup = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const groupId = req.params.id as string;
+    const group = await adminService.updatePassageGroup(groupId, req.body);
+    res.status(StatusCodes.OK).json(group);
   } catch (error) {
     next(error);
   }

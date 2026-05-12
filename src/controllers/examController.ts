@@ -16,12 +16,7 @@ export const getExams = async (req: Request, res: Response, next: NextFunction) 
 export const getExamById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const examId = req.params.examId as string;
-    const user = req.user; // User should be available because route is protected
-    
-    if (!user) {
-      throw new ApiError('Bạn cần đăng nhập', StatusCodes.UNAUTHORIZED);
-    }
-
+    const user = req.user;
     const data = await examService.getExamById(examId, user);
     res.status(StatusCodes.OK).json(data);
   } catch (error) {
@@ -34,11 +29,6 @@ export const submitExam = async (req: Request, res: Response, next: NextFunction
     const examId = req.params.examId as string;
     const userId = req.user?.id;
     const body: examService.SubmitAnswerBody = req.body;
-
-    if (!userId) {
-      throw new ApiError('Bạn cần đăng nhập', StatusCodes.UNAUTHORIZED);
-    }
-
     if (!body.answers || !Array.isArray(body.answers)) {
       throw new ApiError('Payload không hợp lệ (thiếu answers)', StatusCodes.BAD_REQUEST);
     }
@@ -58,12 +48,17 @@ export const getResultById = async (req: Request, res: Response, next: NextFunct
   try {
     const resultId = req.params.resultId as string;
     const userId = req.user?.id;
-
-    if (!userId) {
-      throw new ApiError('Bạn cần đăng nhập', StatusCodes.UNAUTHORIZED);
-    }
-
     const data = await examService.getResultById(resultId, userId);
+    res.status(StatusCodes.OK).json(data);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getResults = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user?.id;
+    const data = await examService.getResults(req.query, userId);
     res.status(StatusCodes.OK).json(data);
   } catch (error) {
     next(error);

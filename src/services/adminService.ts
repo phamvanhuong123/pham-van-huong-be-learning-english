@@ -16,6 +16,9 @@ import type {
   ExamUpdateBody,
   BroadcastBody,
   BroadcastResponse,
+  AdminQuestionsResponse,
+  AdminExamsResponse,
+  PassageGroupCreateBody,
 } from '../types/admin';
 import { StatusCodes } from 'http-status-codes';
 
@@ -25,12 +28,6 @@ const PLAN_DAYS: Record<string, number> = {
   '1m': 30,
   '3m': 90,
   '12m': 365,
-};
-
-const DIFFICULTY_MAP: Record<string, number> = {
-  EASY: 1,
-  MEDIUM: 2,
-  HARD: 3,
 };
 
 const sendEmailSilent = async (to: string, subject: string, html: string, text: string) => {
@@ -351,11 +348,12 @@ export const createQuestion = async (body: QuestionCreateBody) => {
   const question = await prisma.question.create({
     data: {
       examId: body.examId,
+      passageGroupId: body.passageGroupId ?? null,
       order: body.order,
-      passage: body.passage ?? null,
       questionText: body.questionText,
       grammarTopic: body.grammarTopic,
       explanation: body.explanation,
+      difficulty: body.difficulty as any,
       options: {
         create: body.options.map((o) => ({
           label: o.label,
@@ -389,9 +387,9 @@ export const updateQuestion = async (questionId: string, body: QuestionUpdateBod
     throw new ApiError('Phần giải thích phải có ít nhất 20 ký tự', 400);
   }
 
-  const updateData: Parameters<typeof prisma.question.update>[0]['data'] = {};
+  const updateData: any = {};
   if (body.order !== undefined) updateData.order = body.order;
-  if (body.passage !== undefined) updateData.passage = body.passage;
+  if (body.passageGroupId !== undefined) updateData.passageGroupId = body.passageGroupId;
   if (body.questionText !== undefined) updateData.questionText = body.questionText;
   if (body.grammarTopic !== undefined) updateData.grammarTopic = body.grammarTopic;
   if (body.explanation !== undefined) updateData.explanation = body.explanation;
@@ -438,23 +436,39 @@ export const deleteQuestion = async (questionId: string): Promise<void> => {
 };
 
 export const createExam = async (body: ExamCreateBody) => {
-  const difficultyInt = DIFFICULTY_MAP[body.difficulty] ?? 1;
-
   const exam = await prisma.exam.create({
     data: {
       title: body.title,
       part: body.part,
-      difficulty: difficultyInt,
+      difficulty: body.difficulty,
       type: body.type,
       duration: body.duration,
       isPublished: false,
     },
   });
 
+  // Nếu là đề FULL: gán parentExamId cho các đề con
+  if (body.part === 'FULL' && body.componentExamIds && body.componentExamIds.length > 0) {
+    // Kiểm tra tất cả đề con tồn tại
+    const childExams = await prisma.exam.findMany({
+      where: { id: { in: body.componentExamIds } },
+    });
+    if (childExams.length !== body.componentExamIds.length) {
+      // Rollback: xóa đề vừa tạo
+      await prisma.exam.delete({ where: { id: exam.id } });
+      throw new ApiError('Một hoặc nhiều đề thành phần không tồn tại', StatusCodes.BAD_REQUEST);
+    }
+    // Cập nhật parentExamId cho từng đề con
+    await prisma.exam.updateMany({
+      where: { id: { in: body.componentExamIds } },
+      data: { parentExamId: exam.id },
+    });
+  }
+
   return exam;
 };
 
-export const updateExam = async (examId: string, body: ExamUpdateBody) => {
+export const updateExam = async (examId: string, body: ExamUpdateBody & { isPublished?: boolean }) => {
   const exam = await prisma.exam.findUnique({ where: { id: examId } });
   if (!exam) {
     throw new ApiError('Không tìm thấy đề thi', StatusCodes.NOT_FOUND);
@@ -464,9 +478,10 @@ export const updateExam = async (examId: string, body: ExamUpdateBody) => {
 
   if (body.title !== undefined) updateData.title = body.title;
   if (body.part !== undefined) updateData.part = body.part;
-  if (body.difficulty !== undefined) updateData.difficulty = DIFFICULTY_MAP[body.difficulty] ?? 1;
+  if (body.difficulty !== undefined) updateData.difficulty = body.difficulty;
   if (body.type !== undefined) updateData.type = body.type;
   if (body.duration !== undefined) updateData.duration = body.duration;
+  if (body.isPublished !== undefined) updateData.isPublished = body.isPublished;
 
   return prisma.exam.update({ where: { id: examId }, data: updateData });
 };
@@ -498,4 +513,198 @@ export const broadcastNotification = async (body: BroadcastBody): Promise<Broadc
   });
 
   return { sent: users.length };
+};
+
+export const getAdminQuestions = async (query: {
+  search?: string;
+  examId?: string;
+  difficulty?: string;
+  page?: string;
+  limit?: string;
+  passage?: string;
+}): Promise<AdminQuestionsResponse> => {
+  const page = Math.max(1, parseInt(query.page ?? '1', 10));
+  const limit = Math.min(100, Math.max(1, parseInt(query.limit ?? '20', 10)));
+  const skip = (page - 1) * limit;
+
+  const where: Prisma.QuestionWhereInput = {};
+
+  if (query.search) {
+    where.OR = [
+      { questionText: { contains: query.search, mode: 'insensitive' } },
+      { grammarTopic: { contains: query.search, mode: 'insensitive' } },
+      {
+        passageGroup: {
+          passages: {
+            some: {
+              content: { contains: query.search, mode: 'insensitive' }
+            }
+          }
+        }
+      }
+    ];
+  }
+
+  if (query.passage) {
+    where.passageGroup = {
+      passages: {
+        some: {
+          content: { contains: query.passage, mode: 'insensitive' }
+        }
+      }
+    };
+  }
+
+  if (query.examId && query.examId !== 'ALL') {
+    where.examId = query.examId;
+  }
+
+  if (query.difficulty && query.difficulty !== 'ALL') {
+    where.exam = {
+      difficulty: query.difficulty as any,
+    };
+  }
+
+  const [questions, total] = await Promise.all([
+    prisma.question.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        options: true,
+        exam: { select: { title: true, difficulty: true } },
+        passageGroup: {
+          include: { passages: true }
+        }
+      },
+    }),
+    prisma.question.count({ where }),
+  ]);
+
+  return {
+    questions: questions.map((q) => ({
+      id: q.id,
+      examId: q.examId,
+      examTitle: q.exam.title,
+      order: q.order,
+      passageGroup: q.passageGroup,
+      passageGroupId: q.passageGroupId,
+      questionText: q.questionText,
+      grammarTopic: q.grammarTopic,
+      explanation: q.explanation,
+      difficulty: q.exam.difficulty as any,
+      options: q.options.map((o) => ({
+        label: o.label,
+        text: o.text,
+        isCorrect: o.isCorrect,
+      })),
+      createdAt: q.createdAt.toISOString(),
+    })),
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+};
+
+export const getAdminExams = async (): Promise<AdminExamsResponse> => {
+  const examInclude = Prisma.validator<Prisma.ExamInclude>()({
+    _count: { select: { questions: true } },
+    childExams: {
+      select: { id: true, title: true, part: true },
+    },
+  });
+
+  const exams = await prisma.exam.findMany({
+    orderBy: { createdAt: 'desc' },
+    include: examInclude,
+  });
+
+  type ExamWithInclude = Prisma.ExamGetPayload<{ include: typeof examInclude }>;
+
+  return {
+    exams: (exams as ExamWithInclude[]).map((e) => ({
+      id: e.id,
+      title: e.title,
+      part: e.part,
+      difficulty: e.difficulty as any,
+      type: e.type,
+      duration: e.duration,
+      isPublished: e.isPublished,
+      questionCount: e._count.questions,
+      parentExamId: e.parentExamId,
+      childExams: e.childExams.map((c) => ({ id: c.id, title: c.title, part: c.part })),
+      createdAt: e.createdAt.toISOString(),
+    })),
+  };
+};
+
+export const createPassageGroup = async (body: PassageGroupCreateBody) => {
+  return prisma.passageGroup.create({
+    data: {
+      examId: body.examId,
+      order: body.order,
+      passages: {
+        create: body.passages.map((p: any) => ({
+          content: p.content,
+          order: p.order,
+          mediaUrl: p.mediaUrl,
+        })),
+      },
+      questions: body.questions && body.questions.length > 0 ? {
+        create: body.questions.map((q: any) => ({
+          examId: body.examId,
+          order: q.order,
+          questionText: q.questionText,
+          explanation: q.explanation,
+          grammarTopic: q.grammarTopic,
+          difficulty: q.difficulty,
+          options: {
+            create: q.options.map((o: any) => ({
+              label: o.label,
+              text: o.text,
+              isCorrect: o.isCorrect,
+            })),
+          },
+        })),
+      } : undefined    },
+    include: {
+      passages: true,
+      questions: {
+        include: { options: true },
+      },
+    },
+  });
+};
+
+export const updatePassageGroup = async (groupId: string, body: { passages: any[] }) => {
+  // Xóa passage cũ và tạo lại (đơn giản nhất)
+  await prisma.passage.deleteMany({
+    where: { passageGroupId: groupId }
+  });
+
+  return prisma.passageGroup.update({
+    where: { id: groupId },
+    data: {
+      passages: {
+        create: body.passages.map((p: any) => ({
+          content: p.content,
+          order: p.order,
+          mediaUrl: p.mediaUrl,
+        })),
+      }
+    },
+    include: { passages: true }
+  });
+};
+
+export const getPassageGroupsByExam = async (examId: string) => {
+  return prisma.passageGroup.findMany({
+    where: { examId },
+    orderBy: { order: 'asc' },
+    include: { passages: true },
+  });
 };
