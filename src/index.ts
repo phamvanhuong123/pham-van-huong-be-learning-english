@@ -14,6 +14,7 @@ import profileRoutes from './routes/profile.routes';
 import analyticsRoutes from './routes/analytics.routes';
 import adminRoutes from './routes/admin.routes';
 import notificationRoutes from './routes/notification.routes';
+import subscriptionRoutes from './routes/subscription.routes';
 
 import './jobs/sm2Reminder';
 
@@ -83,6 +84,7 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/subscriptions', subscriptionRoutes);
 
 
 app.get('/health', (req, res) => {

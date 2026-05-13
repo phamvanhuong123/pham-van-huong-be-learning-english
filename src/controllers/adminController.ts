@@ -72,6 +72,16 @@ export const updateSubscription = async (req: Request, res: Response, next: Next
   }
 };
 
+export const deleteSubscription = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const subId = req.params.subId as string;
+    await adminService.deleteSubscription(subId);
+    res.status(StatusCodes.OK).json({ message: 'Xóa yêu cầu thành công' });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getQuestions = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { search, examId, difficulty, page, limit } = req.query as Record<string, string | undefined>;

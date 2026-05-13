@@ -17,6 +17,7 @@ router.patch('/users/:userId', adminController.updateUser);
 
 router.get('/subscriptions', adminController.getSubscriptions);
 router.patch('/subscriptions/:subId', adminController.updateSubscription);
+router.delete('/subscriptions/:subId', adminController.deleteSubscription);
 
 
 router.get('/questions', adminController.getQuestions);

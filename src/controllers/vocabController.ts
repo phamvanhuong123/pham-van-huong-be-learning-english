@@ -38,17 +38,28 @@ export const getVocabs = async (req: Request, res: Response, next: NextFunction)
 export const addVocab = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { userId, userRole } = requireUser(req);
-    const { word, example } = req.body as { word?: unknown; example?: unknown };
+    const { word, meaning, example, topic } = req.body as { 
+      word?: unknown; 
+      meaning?: unknown;
+      example?: unknown;
+      topic?: unknown;
+    };
 
     if (!word || typeof word !== 'string' || !word.trim()) {
       throw new ApiError('Từ vựng không hợp lệ', 400);
+    }
+
+    if (!meaning || typeof meaning !== 'string' || !meaning.trim()) {
+      throw new ApiError('Nghĩa của từ không được để trống', 400);
     }
 
     const vocab = await vocabService.addVocab(
       userId,
       userRole,
       word,
-      typeof example === 'string' ? example : undefined
+      meaning,
+      typeof example === 'string' ? example : undefined,
+      typeof topic === 'string' ? topic : undefined
     );
     res.status(201).json(vocab);
   } catch (error) {

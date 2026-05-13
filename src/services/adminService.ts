@@ -4,6 +4,7 @@ import ApiError from '../utils/ApiError';
 import { getTransporter, getPreviewUrl } from '../config/mailer';
 import { vipApprovedTemplate, vipRejectedTemplate } from '../utils/adminEmailTemplates';
 import { env } from '../config/env';
+import * as notificationService from './notificationService';
 import type {
   AdminDashboardResponse,
   AdminUsersResponse,
@@ -291,7 +292,6 @@ export const updateSubscription = async (
       }),
     ]);
 
-    // Gửi email sau khi DB commit thành công (fire & forget)
     const formattedExpiry = expiresAt.toLocaleDateString('vi-VN', {
       year: 'numeric',
       month: 'long',
@@ -306,6 +306,13 @@ export const updateSubscription = async (
         clientUrl: env.CLIENT_URL,
       }),
       `Chúc mừng ${sub.user.name ?? sub.user.email}! Tài khoản VIP của bạn đã được kích hoạt đến ${formattedExpiry}.`,
+    );
+
+    // Thông báo trong app
+    await notificationService.createNotification(
+      sub.userId,
+      ' Tài khoản VIP đã được kích hoạt',
+      `Chúc mừng! Yêu cầu nâng cấp VIP của bạn đã được phê duyệt. Hạn dùng đến: ${formattedExpiry}.`
     );
   } else {
     // REJECTED
@@ -325,7 +332,25 @@ export const updateSubscription = async (
       }),
       `Xin chào ${sub.user.name ?? sub.user.email}, yêu cầu VIP của bạn bị từ chối: ${body.rejectReason}`,
     );
+
+    // Thông báo trong app
+    await notificationService.createNotification(
+      sub.userId,
+      '❌ Yêu cầu VIP bị từ chối',
+      `Rất tiếc, yêu cầu nâng cấp VIP của bạn không được phê duyệt. Lý do: ${body.rejectReason}`
+    );
   }
+};
+
+export const deleteSubscription = async (subId: string): Promise<void> => {
+  const sub = await prisma.subscription.findUnique({ where: { id: subId } });
+  if (!sub) {
+    throw new ApiError('Không tìm thấy yêu cầu VIP này', StatusCodes.NOT_FOUND);
+  }
+  
+  // Chỉ cho phép xóa nếu đã bị REJECTED (hoặc có thể cả APPROVED nếu admin muốn dọn dẹp)
+  // Để an toàn, ở đây ta cho phép xóa bất kỳ request nào.
+  await prisma.subscription.delete({ where: { id: subId } });
 };
 
 export const createQuestion = async (body: QuestionCreateBody) => {

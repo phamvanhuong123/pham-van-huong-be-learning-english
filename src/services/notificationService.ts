@@ -40,3 +40,18 @@ export const markAllAsRead = async (userId: string): Promise<ReadAllResponse> =>
 
   return { updated: result.count };
 };
+
+export const createNotification = async (
+  userId: string,
+  title: string,
+  body: string
+) => {
+  return prisma.notification.create({
+    data: {
+      userId,
+      title,
+      body,
+      isRead: false,
+    },
+  });
+};

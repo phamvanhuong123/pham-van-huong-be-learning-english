@@ -29,7 +29,9 @@ export const addVocab = async (
   userId: string,
   userRole: string,
   word: string,
-  example?: string
+  meaning: string,
+  example?: string,
+  topic?: string
 ) => {
   const normalizedWord = word.trim().toLowerCase();
 
@@ -56,8 +58,9 @@ export const addVocab = async (
     data: {
       userId,
       word: normalizedWord,
-      meaning: 'Đang cập nhật...',
-      example,
+      meaning: meaning.trim(),
+      example: example?.trim(),
+      topic: topic?.trim(),
       schedule: { create: {} },
     },
     include: { schedule: true },
