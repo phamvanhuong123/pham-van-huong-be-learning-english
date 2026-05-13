@@ -57,6 +57,7 @@ model Question {
   difficulty     Difficulty     @default(MEDIUM)
   grammarTopic   String?
   explanation    String?
+  metadata       Json?          // Lưu cấu hình hiển thị (ví dụ: hideOptions: true)
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   options        Option[]
@@ -79,9 +80,10 @@ model PassageGroup {
 model Passage {
   id             String       @id @default(uuid())
   passageGroupId String
-  content        String       @db.Text
+  content        String?      @db.Text
   order          Int          // Thứ tự đoạn văn trong nhóm (VD: Đoạn 1, đoạn 2 của Triple passage)
   mediaUrl       String?
+  mediaType      MediaType    @default(TEXT)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   passageGroup   PassageGroup @relation(fields: [passageGroupId], references: [id], onDelete: Cascade)
@@ -201,10 +203,21 @@ enum Role {
 }
 
 enum ExamPart {
+  PART1
+  PART2
+  PART3
+  PART4
   PART5
   PART6
   PART7
   FULL
+}
+
+enum MediaType {
+  TEXT
+  AUDIO
+  IMAGE
+  VIDEO
 }
 
 enum ExamType {

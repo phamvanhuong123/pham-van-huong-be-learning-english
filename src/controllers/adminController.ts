@@ -209,3 +209,13 @@ export const updatePassageGroup = async (req: Request, res: Response, next: Next
     next(error);
   }
 };
+
+export const deletePassageGroup = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string;
+    await adminService.deletePassageGroup(id);
+    res.status(StatusCodes.OK).json({ message: 'Xóa cụm nội dung thành công' });
+  } catch (error) {
+    next(error);
+  }
+};

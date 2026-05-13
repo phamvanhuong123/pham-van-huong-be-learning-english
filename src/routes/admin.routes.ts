@@ -3,11 +3,20 @@ import { Router } from 'express';
 import { authenticate } from '../middleware/auth';
 import { requireRole } from '../middleware/rbac';
 import * as adminController from '../controllers/adminController';
+import * as uploadController from '../controllers/uploadController';
+import multer from 'multer';
 
 const router = Router();
 
 router.use(authenticate);
 router.use(requireRole('ADMIN'));
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB
+  },
+});
 
 router.get('/dashboard', adminController.getDashboard);
 
@@ -37,5 +46,9 @@ router.delete('/notifications/broadcasts/:id', adminController.deleteBroadcast);
 router.get('/passage-groups/:examId', adminController.getPassageGroups);
 router.post('/passage-groups', adminController.createPassageGroup);
 router.patch('/passage-groups/:id', adminController.updatePassageGroup);
+router.delete('/passage-groups/:id', adminController.deletePassageGroup);
+
+// ─── Upload Media ─────────────────────────────────────────────────────────
+router.post('/upload', upload.single('file'), uploadController.uploadMedia);
 
 export default router;

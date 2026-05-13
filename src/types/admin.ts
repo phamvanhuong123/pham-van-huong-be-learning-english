@@ -106,6 +106,7 @@ export interface QuestionCreateBody {
   explanation: string;
   grammarTopic: string;
   difficulty: QuestionDifficulty;
+  metadata?: any;
   status?: QuestionStatus;
 }
 
@@ -117,13 +118,17 @@ export interface QuestionUpdateBody {
   explanation?: string;
   grammarTopic?: string;
   difficulty?: QuestionDifficulty;
+  metadata?: any;
   status?: QuestionStatus;
 }
 
+export type MediaType = 'TEXT' | 'AUDIO' | 'IMAGE';
+
 export interface PassageCreateBody {
-  content: string;
+  content?: string;
   order: number;
   mediaUrl?: string;
+  mediaType?: MediaType;
 }
 
 export interface PassageGroupCreateBody {
@@ -133,7 +138,7 @@ export interface PassageGroupCreateBody {
   questions?: QuestionCreateBody[]; // Có thể tạo câu hỏi cùng lúc với cụm bài đọc
 }
 
-export type ExamPart = 'PART5' | 'PART6' | 'PART7' | 'FULL';
+export type ExamPart = 'PART1' | 'PART2' | 'PART3' | 'PART4' | 'PART5' | 'PART6' | 'PART7' | 'FULL';
 export type ExamType = 'FREE' | 'VIP';
 
 export interface ExamCreateBody {

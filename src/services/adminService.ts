@@ -1,6 +1,7 @@
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import ApiError from '../utils/ApiError';
+import { deleteImage, getPublicIdFromUrl } from '../utils/cloudinary';
 import { getTransporter, getPreviewUrl } from '../config/mailer';
 import { vipApprovedTemplate, vipRejectedTemplate } from '../utils/adminEmailTemplates';
 import { env } from '../config/env';
@@ -341,7 +342,6 @@ export const updateSubscription = async (
       `Xin chào ${sub.user.name ?? sub.user.email}, yêu cầu VIP của bạn bị từ chối: ${body.rejectReason}`,
     );
 
-    // Thông báo trong app
     await notificationService.createNotification(
       sub.userId,
       ' Yêu cầu VIP bị từ chối',
@@ -356,8 +356,6 @@ export const deleteSubscription = async (subId: string): Promise<void> => {
     throw new ApiError('Không tìm thấy yêu cầu VIP này', StatusCodes.NOT_FOUND);
   }
   
-  // Chỉ cho phép xóa nếu đã bị REJECTED (hoặc có thể cả APPROVED nếu admin muốn dọn dẹp)
-  // Để an toàn, ở đây ta cho phép xóa bất kỳ request nào.
   await prisma.subscription.delete({ where: { id: subId } });
 };
 
@@ -387,6 +385,7 @@ export const createQuestion = async (body: QuestionCreateBody) => {
       grammarTopic: body.grammarTopic,
       explanation: body.explanation,
       difficulty: body.difficulty as any,
+      metadata: body.metadata,
       options: {
         create: body.options.map((o) => ({
           label: o.label,
@@ -426,6 +425,7 @@ export const updateQuestion = async (questionId: string, body: QuestionUpdateBod
   if (body.questionText !== undefined) updateData.questionText = body.questionText;
   if (body.grammarTopic !== undefined) updateData.grammarTopic = body.grammarTopic;
   if (body.explanation !== undefined) updateData.explanation = body.explanation;
+  if (body.metadata !== undefined) updateData.metadata = body.metadata;
 
   if (body.options) {
     await prisma.$transaction([
@@ -472,7 +472,7 @@ export const createExam = async (body: ExamCreateBody) => {
   const exam = await prisma.exam.create({
     data: {
       title: body.title,
-      part: body.part,
+      part: body.part as any,
       difficulty: body.difficulty,
       type: body.type,
       duration: body.duration,
@@ -501,6 +501,42 @@ export const createExam = async (body: ExamCreateBody) => {
   return exam;
 };
 
+export const deletePassageGroup = async (id: string) => {
+  // 1. Tìm thông tin cụm và các passages đi kèm
+  const group = await prisma.passageGroup.findUnique({
+    where: { id },
+    include: { passages: true }
+  });
+
+  if (!group) {
+    throw new ApiError('Không tìm thấy cụm nội dung', StatusCodes.NOT_FOUND);
+  }
+
+  // 2. Kiểm tra xem có câu hỏi nào đang dùng cụm này không
+  const questionsCount = await prisma.question.count({
+    where: { passageGroupId: id }
+  });
+
+  if (questionsCount > 0) {
+    throw new ApiError('Không thể xóa cụm này vì đang có câu hỏi sử dụng nó.', StatusCodes.BAD_REQUEST);
+  }
+
+  // 3. Xóa các file trên Cloudinary (nếu có)
+  for (const passage of group.passages) {
+    if (passage.mediaUrl) {
+      const publicId = getPublicIdFromUrl(passage.mediaUrl);
+      if (publicId) {
+        await deleteImage(publicId);
+      }
+    }
+  }
+
+  // 4. Xóa trong DB
+  return prisma.passageGroup.delete({
+    where: { id }
+  });
+};
+
 export const updateExam = async (examId: string, body: ExamUpdateBody & { isPublished?: boolean }) => {
   const exam = await prisma.exam.findUnique({ where: { id: examId } });
   if (!exam) {
@@ -510,7 +546,7 @@ export const updateExam = async (examId: string, body: ExamUpdateBody & { isPubl
   const updateData: Parameters<typeof prisma.exam.update>[0]['data'] = {};
 
   if (body.title !== undefined) updateData.title = body.title;
-  if (body.part !== undefined) updateData.part = body.part;
+  if (body.part !== undefined) updateData.part = body.part as any;
   if (body.difficulty !== undefined) updateData.difficulty = body.difficulty;
   if (body.type !== undefined) updateData.type = body.type;
   if (body.duration !== undefined) updateData.duration = body.duration;
@@ -743,6 +779,7 @@ export const createPassageGroup = async (body: PassageGroupCreateBody) => {
           content: p.content,
           order: p.order,
           mediaUrl: p.mediaUrl,
+          mediaType: p.mediaType,
         })),
       },
       questions: body.questions && body.questions.length > 0 ? {
@@ -753,6 +790,7 @@ export const createPassageGroup = async (body: PassageGroupCreateBody) => {
           explanation: q.explanation,
           grammarTopic: q.grammarTopic,
           difficulty: q.difficulty,
+          metadata: q.metadata,
           options: {
             create: q.options.map((o: any) => ({
               label: o.label,
@@ -772,7 +810,28 @@ export const createPassageGroup = async (body: PassageGroupCreateBody) => {
 };
 
 export const updatePassageGroup = async (groupId: string, body: { passages: any[] }) => {
-  // Xóa passage cũ và tạo lại (đơn giản nhất)
+  // 1. Tìm cụm cũ để lấy danh sách URL trước khi xóa
+  const oldGroup = await prisma.passageGroup.findUnique({
+    where: { id: groupId },
+    include: { passages: true }
+  });
+
+  if (oldGroup) {
+    const oldUrls = oldGroup.passages.map(p => p.mediaUrl).filter(Boolean) as string[];
+    const newUrls = body.passages.map(p => p.mediaUrl).filter(Boolean) as string[];
+
+    // Tìm các URL cũ không còn xuất hiện trong danh sách mới (đã bị xóa hoặc thay đổi)
+    const urlsToDelete = oldUrls.filter(url => !newUrls.includes(url));
+
+    for (const url of urlsToDelete) {
+      const publicId = getPublicIdFromUrl(url);
+      if (publicId) {
+        await deleteImage(publicId);
+      }
+    }
+  }
+
+  // 2. Xóa passage cũ và tạo lại (đơn giản nhất)
   await prisma.passage.deleteMany({
     where: { passageGroupId: groupId }
   });
@@ -785,6 +844,7 @@ export const updatePassageGroup = async (groupId: string, body: { passages: any[
           content: p.content,
           order: p.order,
           mediaUrl: p.mediaUrl,
+          mediaType: p.mediaType,
         })),
       }
     },

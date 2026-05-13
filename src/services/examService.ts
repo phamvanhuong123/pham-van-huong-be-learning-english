@@ -162,7 +162,10 @@ export const getExamById = async (examId: string, user: { role: string }) => {
   // Nếu FULL thì gộp câu hỏi từ các đề con theo thứ tự Part
   let rawQuestions = examData.questions;
   if (examData.part === 'FULL' && examData.childExams.length > 0) {
-    const partOrder: Record<string, number> = { PART5: 1, PART6: 2, PART7: 3 };
+    const partOrder: Record<string, number> = { 
+      PART1: 1, PART2: 2, PART3: 3, PART4: 4, 
+      PART5: 5, PART6: 6, PART7: 7 
+    };
     const sortedChildren = [...examData.childExams].sort(
       (a, b) => (partOrder[a.part] ?? 99) - (partOrder[b.part] ?? 99),
     );
@@ -181,11 +184,11 @@ export const getExamById = async (examId: string, user: { role: string }) => {
     passageGroupId: q.passageGroupId,
     passageGroup: q.passageGroup,
     questionText: q.questionText,
+    metadata: q.metadata,
     options: q.options.map((o: any) => ({
       id: o.id,
       label: o.label,
       text: o.text,
-      // isCorrect intentionally omitted
     })),
   }));
 
@@ -232,7 +235,10 @@ export const submitExam = async (examId: string, userId: string, body: SubmitAns
   // Nếu FULL thì gộp câu hỏi từ các đề con
   let allQuestions = examData.questions;
   if (examData.part === 'FULL' && examData.childExams.length > 0) {
-    const partOrder: Record<string, number> = { PART5: 1, PART6: 2, PART7: 3 };
+    const partOrder: Record<string, number> = { 
+      PART1: 1, PART2: 2, PART3: 3, PART4: 4, 
+      PART5: 5, PART6: 6, PART7: 7 
+    };
     const sortedChildren = [...examData.childExams].sort(
       (a, b) => (partOrder[a.part] ?? 99) - (partOrder[b.part] ?? 99),
     );
@@ -275,10 +281,10 @@ export const submitExam = async (examId: string, userId: string, body: SubmitAns
 
   
   let score = 0;
-  if (['PART5', 'PART6', 'PART7'].includes(exam.part)) {
+  const singleParts = ['PART1', 'PART2', 'PART3', 'PART4', 'PART5', 'PART6', 'PART7'];
+  if (singleParts.includes(exam.part)) {
     score = correctQ * 5;
   } else {
-
     score = Math.round((correctQ / totalQ) * 990);
   }
 
