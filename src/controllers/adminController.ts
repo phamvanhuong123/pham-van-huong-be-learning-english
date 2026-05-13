@@ -162,6 +162,25 @@ export const broadcastNotification = async (req: Request, res: Response, next: N
   }
 };
 
+export const getBroadcasts = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const data = await adminService.getAdminBroadcasts();
+    res.status(StatusCodes.OK).json(data);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteBroadcast = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string;
+    await adminService.deleteAdminBroadcast(id);
+    res.status(StatusCodes.OK).json({ message: 'Xóa đợt thông báo thành công' });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getPassageGroups = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const examId = req.params.examId as string;

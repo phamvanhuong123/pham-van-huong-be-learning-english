@@ -30,6 +30,8 @@ router.post('/exams', adminController.createExam);
 router.patch('/exams/:id', adminController.updateExam);
 
 router.post('/notifications/broadcast', adminController.broadcastNotification);
+router.get('/notifications/broadcasts', adminController.getBroadcasts);
+router.delete('/notifications/broadcasts/:id', adminController.deleteBroadcast);
 
 // ─── Passage Groups ────────────────────────────────────────────────────────
 router.get('/passage-groups/:examId', adminController.getPassageGroups);

@@ -5,7 +5,7 @@ import { getTransporter, getPreviewUrl } from '../config/mailer';
 import { vipApprovedTemplate, vipRejectedTemplate } from '../utils/adminEmailTemplates';
 import { env } from '../config/env';
 import * as notificationService from './notificationService';
-import type {
+import {
   AdminDashboardResponse,
   AdminUsersResponse,
   UserUpdateBody,
@@ -17,11 +17,13 @@ import type {
   ExamUpdateBody,
   BroadcastBody,
   BroadcastResponse,
+  AdminBroadcastsResponse,
   AdminQuestionsResponse,
   AdminExamsResponse,
   PassageGroupCreateBody,
 } from '../types/admin';
 import { StatusCodes } from 'http-status-codes';
+import { socketEmitter } from '../sockets/socketEmitter';
 
 const FROM = `"TOEIC Master" <${env.SMTP_FROM || env.SMTP_USER || 'noreply@toeicmaster.vn'}>`;
 
@@ -524,21 +526,81 @@ export const broadcastNotification = async (body: BroadcastBody): Promise<Broadc
     where,
     select: { id: true },
   });
+
   if (users.length === 0) {
-    return { sent: 0 };
+    throw new ApiError('Không tìm thấy người dùng mục tiêu', StatusCodes.NOT_FOUND);
   }
 
-  await prisma.notification.createMany({
-    data: users.map((u) => ({
-      userId: u.id,
-      title: body.title,
-      body: body.body,
-      isRead: false,
-    })),
+  // Chạy transaction để đảm bảo lưu lịch sử và gửi thông báo đồng bộ
+  await prisma.$transaction(async (tx) => {
+    // 1. Lưu lịch sử Broadcast
+    const broadcast = await tx.broadcast.create({
+      data: {
+        title: body.title,
+        body: body.body,
+        targetRole: body.targetRole,
+      },
+    });
+
+    // 2. Tạo thông báo cho từng User
+    await tx.notification.createMany({
+      data: users.map((u) => ({
+        userId: u.id,
+        broadcastId: broadcast.id,
+        title: body.title,
+        body: body.body,
+        isRead: false,
+      })),
+    });
   });
+
+  // Gửi thông báo realtime
+  const socketData = {
+    title: body.title,
+    body: body.body,
+    createdAt: new Date().toISOString(),
+  };
+
+  if (body.targetRole === 'ALL') {
+    socketEmitter.broadcast('new_notification', socketData);
+  } else {
+    socketEmitter.emitToRole(body.targetRole, 'new_notification', socketData);
+  }
 
   return { sent: users.length };
 };
+
+export const getAdminBroadcasts = async (): Promise<AdminBroadcastsResponse> => {
+  const broadcasts = await prisma.broadcast.findMany({
+    orderBy: { sentAt: 'desc' },
+    include: {
+      _count: { select: { notifications: true } },
+    },
+  });
+
+  return {
+    broadcasts: broadcasts.map((b) => ({
+      id: b.id,
+      title: b.title,
+      body: b.body,
+      targetRole: b.targetRole,
+      sentAt: b.sentAt.toISOString(),
+      _count: b._count,
+    })),
+  };
+};
+
+export const deleteAdminBroadcast = async (id: string): Promise<void> => {
+  const broadcast = await prisma.broadcast.findUnique({ where: { id } });
+  if (!broadcast) {
+    throw new ApiError('Không tìm thấy đợt thông báo này', StatusCodes.NOT_FOUND);
+  }
+
+  // Do chúng ta dùng onDelete: Cascade trong schema nên khi xóa Broadcast,
+  // tất cả Notifications liên quan sẽ bị xóa tự động khỏi hộp thư của User.
+  await prisma.broadcast.delete({ where: { id } });
+};
+
 
 export const getAdminQuestions = async (query: {
   search?: string;

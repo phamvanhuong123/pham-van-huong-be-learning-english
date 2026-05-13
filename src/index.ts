@@ -22,7 +22,14 @@ import './jobs/sm2Reminder';
 import cookieParser from 'cookie-parser';
 import { StatusCodes } from 'http-status-codes';
 
+import { createServer } from 'http';
+import { initSocket } from './sockets';
+
 const app = express();
+const httpServer = createServer(app);
+
+// Initialize Socket.io
+initSocket(httpServer);
 
 app.use(cookieParser());
 // 1. Helmet for security headers
@@ -96,8 +103,6 @@ app.use(errorHandler);
 
 const PORT = env.PORT || 5000;
 
-app.listen(PORT, () => {
+httpServer.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
-
-

@@ -157,11 +157,26 @@ export interface ExamUpdateBody {
 export interface BroadcastBody {
   title: string;
   body: string;
-  targetRole?: 'STANDARD' | 'VIP';
+  targetRole: 'ALL' | 'STANDARD' | 'VIP';
 }
 
 export interface BroadcastResponse {
   sent: number;
+}
+
+export interface BroadcastItem {
+  id: string;
+  title: string;
+  body: string;
+  targetRole: string;
+  sentAt: string;
+  _count?: {
+    notifications: number;
+  };
+}
+
+export interface AdminBroadcastsResponse {
+  broadcasts: BroadcastItem[];
 }
 
 export interface AdminQuestionItem {
