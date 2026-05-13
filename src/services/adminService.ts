@@ -265,7 +265,7 @@ export const updateSubscription = async (
 
   const sub = await prisma.subscription.findUnique({
     where: { id: subId },
-    include: { user: { select: { id: true, name: true, email: true } } },
+    include: { user: { select: { id: true, name: true, email: true, role: true, vipExpiresAt: true } } },
   });
   if (!sub) {
     throw new ApiError('Không tìm thấy yêu cầu VIP này', StatusCodes.NOT_FOUND);
@@ -279,9 +279,15 @@ export const updateSubscription = async (
     if (!days) {
       throw new ApiError('Gói VIP không hợp lệ', StatusCodes.BAD_REQUEST);
     }
-    const expiresAt = new Date();
+    //Nếu đang là VIP và chưa hết hạn thì cộng dồn vào ngày hết hạn cũ
+    const now = new Date();
+    const baseDate = (sub.user.role === 'VIP' && sub.user.vipExpiresAt && sub.user.vipExpiresAt > now)
+      ? new Date(sub.user.vipExpiresAt)
+      : now;
+
+    const expiresAt = new Date(baseDate);
     expiresAt.setDate(expiresAt.getDate() + days);
-    const startsAt = new Date();
+    const startsAt = now;
 
     await prisma.$transaction([
       prisma.subscription.update({
@@ -338,7 +344,7 @@ export const updateSubscription = async (
     // Thông báo trong app
     await notificationService.createNotification(
       sub.userId,
-      '❌ Yêu cầu VIP bị từ chối',
+      ' Yêu cầu VIP bị từ chối',
       `Rất tiếc, yêu cầu nâng cấp VIP của bạn không được phê duyệt. Lý do: ${body.rejectReason}`
     );
   }
@@ -531,9 +537,7 @@ export const broadcastNotification = async (body: BroadcastBody): Promise<Broadc
     throw new ApiError('Không tìm thấy người dùng mục tiêu', StatusCodes.NOT_FOUND);
   }
 
-  // Chạy transaction để đảm bảo lưu lịch sử và gửi thông báo đồng bộ
   await prisma.$transaction(async (tx) => {
-    // 1. Lưu lịch sử Broadcast
     const broadcast = await tx.broadcast.create({
       data: {
         title: body.title,

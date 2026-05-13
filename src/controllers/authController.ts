@@ -77,7 +77,16 @@ export const refresh = async (req: Request, res: Response, next: NextFunction) =
         }
 
         const accessToken = generateAccessToken({ userId: user.id, role: user.role, email: user.email });
-        res.status(StatusCodes.OK).json({ accessToken });
+        res.status(StatusCodes.OK).json({ 
+          accessToken,
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            avatarUrl: user.avatarUrl
+          }
+        });
       });
     });
   } catch (error) {
