@@ -126,7 +126,57 @@ export const deleteQuestion = async (req: Request, res: Response, next: NextFunc
   try {
     const id = req.params.id as string;
     await adminService.deleteQuestion(id);
-    res.status(StatusCodes.NO_CONTENT).send();
+    res.status(StatusCodes.OK).json({ message: 'Đã chuyển câu hỏi vào thùng rác' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const restoreQuestion = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string;
+    await adminService.restoreQuestion(id);
+    res.status(StatusCodes.OK).json({ message: 'Khôi phục câu hỏi thành công' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const hardDeleteQuestion = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string;
+    await adminService.hardDeleteQuestion(id);
+    res.status(StatusCodes.OK).json({ message: 'Đã xóa vĩnh viễn câu hỏi' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const bulkDeleteQuestions = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { ids } = req.body as { ids: string[] };
+    await adminService.bulkDeleteQuestions(ids);
+    res.status(StatusCodes.OK).json({ message: `Đã chuyển ${ids.length} câu hỏi vào thùng rác` });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const bulkRestoreQuestions = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { ids } = req.body as { ids: string[] };
+    await adminService.bulkRestoreQuestions(ids);
+    res.status(StatusCodes.OK).json({ message: `Đã khôi phục ${ids.length} câu hỏi` });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const bulkHardDeleteQuestions = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { ids } = req.body as { ids: string[] };
+    await adminService.bulkHardDeleteQuestions(ids);
+    res.status(StatusCodes.OK).json({ message: `Đã xóa vĩnh viễn ${ids.length} câu hỏi` });
   } catch (error) {
     next(error);
   }
@@ -144,9 +194,79 @@ export const createExam = async (req: Request, res: Response, next: NextFunction
 
 export const updateExam = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const id = req.params.id as string;    const body = req.body as ExamUpdateBody;
+    const id = req.params.id as string;
+    const body = req.body as ExamUpdateBody;
     const exam = await adminService.updateExam(id, body);
     res.status(StatusCodes.OK).json(exam);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteExam = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string;
+    await adminService.deleteExam(id);
+    res.status(StatusCodes.OK).json({ message: 'Đã chuyển đề thi vào thùng rác' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const restoreExam = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string;
+    await adminService.restoreExam(id);
+    res.status(StatusCodes.OK).json({ message: 'Khôi phục đề thi thành công' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const hardDeleteExam = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string;
+    await adminService.hardDeleteExam(id);
+    res.status(StatusCodes.OK).json({ message: 'Đã xóa vĩnh viễn đề thi' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const bulkDeleteExams = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { ids } = req.body as { ids: string[] };
+    await adminService.bulkDeleteExams(ids);
+    res.status(StatusCodes.OK).json({ message: `Đã chuyển ${ids.length} đề thi vào thùng rác` });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const bulkRestoreExams = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { ids } = req.body as { ids: string[] };
+    await adminService.bulkRestoreExams(ids);
+    res.status(StatusCodes.OK).json({ message: `Đã khôi phục ${ids.length} đề thi` });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const bulkHardDeleteExams = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { ids } = req.body as { ids: string[] };
+    await adminService.bulkHardDeleteExams(ids);
+    res.status(StatusCodes.OK).json({ message: `Đã xóa vĩnh viễn ${ids.length} đề thi` });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getDeletedItems = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const data = await adminService.getDeletedItems();
+    res.status(StatusCodes.OK).json(data);
   } catch (error) {
     next(error);
   }

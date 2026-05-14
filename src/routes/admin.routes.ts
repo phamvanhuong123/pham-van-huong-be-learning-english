@@ -33,10 +33,23 @@ router.get('/questions', adminController.getQuestions);
 router.post('/questions', adminController.createQuestion);
 router.patch('/questions/:id', adminController.updateQuestion);
 router.delete('/questions/:id', adminController.deleteQuestion);
+router.patch('/questions/:id/restore', adminController.restoreQuestion);
+router.delete('/questions/:id/hard', adminController.hardDeleteQuestion);
+router.post('/questions/bulk-delete', adminController.bulkDeleteQuestions);
+router.post('/questions/bulk-restore', adminController.bulkRestoreQuestions);
+router.post('/questions/bulk-hard', adminController.bulkHardDeleteQuestions);
 
 router.get('/exams', adminController.getExams);
 router.post('/exams', adminController.createExam);
 router.patch('/exams/:id', adminController.updateExam);
+router.delete('/exams/:id', adminController.deleteExam);
+router.patch('/exams/:id/restore', adminController.restoreExam);
+router.delete('/exams/:id/hard', adminController.hardDeleteExam);
+router.post('/exams/bulk-delete', adminController.bulkDeleteExams);
+router.post('/exams/bulk-restore', adminController.bulkRestoreExams);
+router.post('/exams/bulk-hard', adminController.bulkHardDeleteExams);
+
+router.get('/trash', adminController.getDeletedItems);
 
 router.post('/notifications/broadcast', adminController.broadcastNotification);
 router.get('/notifications/broadcasts', adminController.getBroadcasts);

@@ -1,7 +1,7 @@
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
 import ApiError from '../utils/ApiError';
-import { deleteImage, getPublicIdFromUrl } from '../utils/cloudinary';
+import { deleteAsset, getPublicIdFromUrl } from '../utils/cloudinary';
 import { getTransporter, getPreviewUrl } from '../config/mailer';
 import { vipApprovedTemplate, vipRejectedTemplate } from '../utils/adminEmailTemplates';
 import { env } from '../config/env';
@@ -20,6 +20,7 @@ import {
   BroadcastResponse,
   AdminBroadcastsResponse,
   AdminQuestionsResponse,
+  AdminQuestionItem,
   AdminExamsResponse,
   PassageGroupCreateBody,
 } from '../types/admin';
@@ -451,20 +452,37 @@ export const updateQuestion = async (questionId: string, body: QuestionUpdateBod
 export const deleteQuestion = async (questionId: string): Promise<void> => {
   const question = await prisma.question.findUnique({
     where: { id: questionId },
-    include: { _count: { select: { resultDetails: true } } },
   });
   if (!question) {
     throw new ApiError('Không tìm thấy câu hỏi', 404);
   }
 
-  const usageCount = question._count.resultDetails;
-  if (usageCount > 0) {
-    throw new ApiError(
-      `Câu hỏi đã được dùng trong ${usageCount} bài thi, không thể xóa`,
-      409,
-    );
+  // Chuyển sang xóa mềm
+  await prisma.question.update({ 
+    where: { id: questionId }, 
+    data: { isDeleted: true } 
+  });
+};
+
+export const restoreQuestion = async (questionId: string): Promise<void> => {
+  await prisma.question.update({
+    where: { id: questionId },
+    data: { isDeleted: false },
+  });
+};
+
+export const hardDeleteQuestion = async (questionId: string): Promise<void> => {
+  // 1. Tìm thông tin media của câu hỏi (nếu có thông qua PassageGroup)
+  const question = await prisma.question.findUnique({
+    where: { id: questionId },
+    include: { passageGroup: { include: { passages: true } } }
+  });
+
+  if (question) {
+    await cleanupQuestionsAssets([question]);
   }
 
+  // 2. Xóa trong DB
   await prisma.question.delete({ where: { id: questionId } });
 };
 
@@ -526,7 +544,8 @@ export const deletePassageGroup = async (id: string) => {
     if (passage.mediaUrl) {
       const publicId = getPublicIdFromUrl(passage.mediaUrl);
       if (publicId) {
-        await deleteImage(publicId);
+        const resourceType = passage.mediaType === 'AUDIO' || passage.mediaType === 'VIDEO' ? 'video' : 'image';
+        await deleteAsset(publicId, resourceType);
       }
     }
   }
@@ -654,7 +673,7 @@ export const getAdminQuestions = async (query: {
   const limit = Math.min(100, Math.max(1, parseInt(query.limit ?? '20', 10)));
   const skip = (page - 1) * limit;
 
-  const where: Prisma.QuestionWhereInput = {};
+  const where: Prisma.QuestionWhereInput = { isDeleted: false };
 
   if (query.search) {
     where.OR = [
@@ -727,7 +746,7 @@ export const getAdminQuestions = async (query: {
         isCorrect: o.isCorrect,
       })),
       createdAt: q.createdAt.toISOString(),
-    })),
+    } as AdminQuestionItem)),
     pagination: {
       page,
       limit,
@@ -746,6 +765,7 @@ export const getAdminExams = async (): Promise<AdminExamsResponse> => {
   });
 
   const exams = await prisma.exam.findMany({
+    where: { isDeleted: false },
     orderBy: { createdAt: 'desc' },
     include: examInclude,
   });
@@ -824,9 +844,11 @@ export const updatePassageGroup = async (groupId: string, body: { passages: any[
     const urlsToDelete = oldUrls.filter(url => !newUrls.includes(url));
 
     for (const url of urlsToDelete) {
+      const passage = oldGroup.passages.find(p => p.mediaUrl === url);
       const publicId = getPublicIdFromUrl(url);
-      if (publicId) {
-        await deleteImage(publicId);
+      if (publicId && passage) {
+        const resourceType = passage.mediaType === 'AUDIO' || passage.mediaType === 'VIDEO' ? 'video' : 'image';
+        await deleteAsset(publicId, resourceType);
       }
     }
   }
@@ -859,3 +881,185 @@ export const getPassageGroupsByExam = async (examId: string) => {
     include: { passages: true },
   });
 };
+
+// --- Recycle Bin Logic ---
+
+export const deleteExam = async (examId: string): Promise<void> => {
+  const exam = await prisma.exam.findUnique({ where: { id: examId } });
+  if (!exam) throw new ApiError('Không tìm thấy đề thi', StatusCodes.NOT_FOUND);
+
+  // Xóa mềm đề thi
+  await prisma.exam.update({
+    where: { id: examId },
+    data: { isDeleted: true },
+  });
+};
+
+export const restoreExam = async (examId: string): Promise<void> => {
+  await prisma.exam.update({
+    where: { id: examId },
+    data: { isDeleted: false },
+  });
+};
+
+export const hardDeleteExam = async (examId: string): Promise<void> => {
+  const exam = await prisma.exam.findUnique({ 
+    where: { id: examId },
+    include: { 
+      passageGroups: { include: { passages: true } }
+    }
+  });
+  if (!exam) throw new ApiError('Không tìm thấy đề thi', StatusCodes.NOT_FOUND);
+
+  // 1. Xóa các file media của đề thi này
+  for (const group of exam.passageGroups) {
+    for (const passage of group.passages) {
+      if (passage.mediaUrl) {
+        const publicId = getPublicIdFromUrl(passage.mediaUrl);
+        if (publicId) {
+          const resourceType = passage.mediaType === 'AUDIO' || passage.mediaType === 'VIDEO' ? 'video' : 'image';
+          await deleteAsset(publicId, resourceType);
+        }
+      }
+    }
+  }
+
+  // 2. Xóa thẳng đề thi
+  await prisma.exam.delete({ where: { id: examId } });
+};
+
+export const getDeletedItems = async () => {
+  const [exams, questions] = await Promise.all([
+    prisma.exam.findMany({
+      where: { isDeleted: true },
+      include: { _count: { select: { questions: true } } },
+      orderBy: { updatedAt: 'desc' },
+    }),
+    prisma.question.findMany({
+      where: { isDeleted: true },
+      include: { exam: { select: { title: true } } },
+      orderBy: { updatedAt: 'desc' },
+    }),
+  ]);
+
+  return {
+    exams: exams.map(e => ({
+      id: e.id,
+      title: e.title,
+      part: e.part,
+      questionCount: e._count.questions,
+      deletedAt: e.updatedAt,
+    })),
+    questions: questions.map(q => ({
+      id: q.id,
+      questionText: q.questionText,
+      examTitle: (q as any).exam?.title || 'Đề thi không xác định',
+      deletedAt: q.updatedAt,
+    })),
+  };
+};
+
+// --- Bulk Operations ---
+
+export const bulkDeleteExams = async (ids: string[]) => {
+  return prisma.exam.updateMany({
+    where: { id: { in: ids } },
+    data: { isDeleted: true },
+  });
+};
+
+export const bulkRestoreExams = async (ids: string[]) => {
+  return prisma.exam.updateMany({
+    where: { id: { in: ids } },
+    data: { isDeleted: false },
+  });
+};
+
+export const bulkHardDeleteExams = async (ids: string[]) => {
+  // 1. Lấy thông tin media của tất cả đề thi được chọn
+  const exams = await prisma.exam.findMany({
+    where: { id: { in: ids } },
+    include: { 
+      passageGroups: { include: { passages: true } }
+    }
+  });
+
+  for (const exam of exams) {
+    for (const group of exam.passageGroups) {
+      for (const passage of group.passages) {
+        if (passage.mediaUrl) {
+          const publicId = getPublicIdFromUrl(passage.mediaUrl);
+          if (publicId) {
+            const resourceType = passage.mediaType === 'AUDIO' || passage.mediaType === 'VIDEO' ? 'video' : 'image';
+            await deleteAsset(publicId, resourceType);
+          }
+        }
+      }
+    }
+  }
+
+  return prisma.exam.deleteMany({
+    where: { id: { in: ids } },
+  });
+};
+
+export const bulkDeleteQuestions = async (ids: string[]) => {
+  return prisma.question.updateMany({
+    where: { id: { in: ids } },
+    data: { isDeleted: true },
+  });
+};
+
+export const bulkRestoreQuestions = async (ids: string[]) => {
+  return prisma.question.updateMany({
+    where: { id: { in: ids } },
+    data: { isDeleted: false },
+  });
+};
+
+export const bulkHardDeleteQuestions = async (ids: string[]) => {
+  // 1. Lấy thông tin media của các câu hỏi
+  const questions = await prisma.question.findMany({
+    where: { id: { in: ids } },
+    include: { passageGroup: { include: { passages: true } } }
+  });
+
+  await cleanupQuestionsAssets(questions);
+
+  return prisma.question.deleteMany({
+    where: { id: { in: ids } },
+  });
+};
+
+// --- Helper Functions ---
+
+async function cleanupQuestionsAssets(questions: any[]) {
+  // Trong TOEIC, media thường nằm ở PassageGroup của câu hỏi đó
+  // (Trừ khi câu hỏi đó dùng chung PassageGroup với câu khác, nhưng khi xóa hết câu hỏi của 1 PassageGroup thì PassageGroup cũng thường bị xóa theo hoặc mồ côi)
+  // Lưu ý: Logic này tập trung vào các file media gắn liền với các câu hỏi đang bị xóa vĩnh viễn.
+  for (const q of questions) {
+    if (q.passageGroup) {
+      for (const passage of q.passageGroup.passages) {
+        if (passage.mediaUrl) {
+          const publicId = getPublicIdFromUrl(passage.mediaUrl);
+          if (publicId) {
+            const resourceType = passage.mediaType === 'AUDIO' || passage.mediaType === 'VIDEO' ? 'video' : 'image';
+            await deleteAsset(publicId, resourceType);
+          }
+        }
+      }
+    }
+    
+    // Kiểm tra thêm trong metadata nếu có mediaUrl (một số dạng đề cũ)
+    if (q.metadata && typeof q.metadata === 'object') {
+      const meta = q.metadata as any;
+      if (meta.mediaUrl) {
+        const publicId = getPublicIdFromUrl(meta.mediaUrl);
+        if (publicId) {
+          const resourceType = meta.mediaType === 'AUDIO' || meta.mediaType === 'VIDEO' ? 'video' : 'image';
+          await deleteAsset(publicId, resourceType);
+        }
+      }
+    }
+  }
+}

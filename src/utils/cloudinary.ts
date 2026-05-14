@@ -36,11 +36,11 @@ export const uploadAudio = async (file: Express.Multer.File, folder: string) => 
   });
 };
 
-export const deleteImage = async (publicId: string) => {
+export const deleteAsset = async (publicId: string, resourceType: 'image' | 'video' | 'raw' = 'image') => {
   try {
-    await cloudinary.uploader.destroy(publicId);
+    await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
   } catch (error) {
-    console.error('Error deleting image from Cloudinary:', error);
+    console.error(`Error deleting ${resourceType} from Cloudinary:`, error);
   }
 };
 export const getPublicIdFromUrl = (url: string) => {

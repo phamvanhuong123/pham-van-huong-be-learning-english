@@ -2,7 +2,7 @@ import { StatusCodes } from 'http-status-codes';
 import prisma from '../config/database';
 import { ProfileResponse, UpdateProfileBody } from '../types/profile';
 import ApiError from '../utils/ApiError';
-import { uploadImage, deleteImage, getPublicIdFromUrl } from '../utils/cloudinary';
+import { uploadImage, deleteAsset, getPublicIdFromUrl } from '../utils/cloudinary';
 
 export const getProfile = async (userId: string): Promise<ProfileResponse> => {
   const user = await prisma.user.findUnique({
@@ -92,7 +92,7 @@ export const updateAvatar = async (
   if (user.avatarUrl) {
     const oldPublicId = getPublicIdFromUrl(user.avatarUrl);
     if (oldPublicId) {
-      await deleteImage(oldPublicId);
+      await deleteAsset(oldPublicId);
     }
   }
 

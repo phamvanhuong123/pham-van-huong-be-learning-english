@@ -38,6 +38,7 @@ model Exam {
   type          ExamType   @default(FREE)
   duration      Int
   isPublished   Boolean    @default(false)
+  isDeleted     Boolean    @default(false)
   parentExamId  String?    // null = đề độc lập hoặc đề FULL; khác null = đề con thuộc đề FULL
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
@@ -53,11 +54,12 @@ model Question {
   examId         String
   passageGroupId String?        // Liên kết với nhóm bài đọc (cho Part 6/7)
   order          Int
-  questionText   String
+  questionText   String?
   difficulty     Difficulty     @default(MEDIUM)
   grammarTopic   String?
   explanation    String?
   metadata       Json?          // Lưu cấu hình hiển thị (ví dụ: hideOptions: true)
+  isDeleted      Boolean        @default(false)
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   options        Option[]

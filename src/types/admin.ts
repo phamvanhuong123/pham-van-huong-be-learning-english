@@ -101,7 +101,7 @@ export interface QuestionCreateBody {
   examId: string;
   passageGroupId?: string; // Liên kết với cụm bài đọc (nếu có)
   order: number;
-  questionText: string;
+  questionText: string | null;
   options: QuestionOption[];
   explanation: string;
   grammarTopic: string;
@@ -113,7 +113,7 @@ export interface QuestionCreateBody {
 export interface QuestionUpdateBody {
   passageGroupId?: string;
   order?: number;
-  questionText?: string;
+  questionText?: string | null;
   options?: QuestionOption[];
   explanation?: string;
   grammarTopic?: string;
@@ -191,7 +191,7 @@ export interface AdminQuestionItem {
   order: number;
   passageGroupId: string | null;
   passageGroup?: any;
-  questionText: string;
+  questionText: string | null;
   grammarTopic: string | null;
   explanation: string | null;
   difficulty: QuestionDifficulty;
