@@ -15,6 +15,8 @@ import type {
   ExamUpdateBody,
   BroadcastBody,
   PassageGroupCreateBody,
+  GrammarTopicCreateBody,
+  GrammarTopicUpdateBody,
 } from '../types/admin';
 import { StatusCodes } from 'http-status-codes';
 
@@ -335,6 +337,48 @@ export const deletePassageGroup = async (req: Request, res: Response, next: Next
     const id = req.params.id as string;
     await adminService.deletePassageGroup(id);
     res.status(StatusCodes.OK).json({ message: 'Xóa cụm nội dung thành công' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─── Grammar Topic Management ────────────────────────────────────────────────
+
+export const getGrammarTopics = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const topics = await adminService.getAdminGrammarTopics();
+    res.status(StatusCodes.OK).json(topics);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const createGrammarTopic = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const body = req.body as GrammarTopicCreateBody;
+    const topic = await adminService.createGrammarTopic(body);
+    res.status(StatusCodes.CREATED).json(topic);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateGrammarTopic = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string;
+    const body = req.body as GrammarTopicUpdateBody;
+    const topic = await adminService.updateGrammarTopic(id, body);
+    res.status(StatusCodes.OK).json(topic);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteGrammarTopic = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const id = req.params.id as string;
+    await adminService.deleteGrammarTopic(id);
+    res.status(StatusCodes.OK).json({ message: 'Xóa chủ đề thành công' });
   } catch (error) {
     next(error);
   }

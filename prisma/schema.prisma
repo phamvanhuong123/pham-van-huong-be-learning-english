@@ -51,19 +51,21 @@ model Exam {
 
 model Question {
   id             String         @id @default(uuid())
-  examId         String
+  examId         String?        // null = câu hỏi lẻ (Ngân hàng câu hỏi); khác null = thuộc đề thi
   passageGroupId String?        // Liên kết với nhóm bài đọc (cho Part 6/7)
   order          Int
   questionText   String?
   difficulty     Difficulty     @default(MEDIUM)
-  grammarTopic   String?
+  grammarTopic   String?        // Tag cũ (chuỗi string) - Giữ lại để migration dữ liệu
+  grammarTopicId String?        // FK tới bảng GrammarTopic mới
   explanation    String?
   metadata       Json?          // Lưu cấu hình hiển thị (ví dụ: hideOptions: true)
   isDeleted      Boolean        @default(false)
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
   options        Option[]
-  exam           Exam           @relation(fields: [examId], references: [id], onDelete: Cascade)
+  exam           Exam?          @relation(fields: [examId], references: [id], onDelete: Cascade)
+  grammarTopicRel GrammarTopic? @relation(fields: [grammarTopicId], references: [id], onDelete: SetNull)
   passageGroup   PassageGroup?  @relation(fields: [passageGroupId], references: [id], onDelete: SetNull)
   resultDetails  ResultDetail[]
 }
@@ -132,16 +134,28 @@ model ResultDetail {
   selectedOption   Option?  @relation(fields: [selectedOptionId], references: [id])
 }
 
+model GrammarTopic {
+  id          String     @id @default(uuid())
+  name        String     @unique
+  slug        String     @unique
+  description String?    @db.Text
+  questions   Question[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
 model Vocab {
   id        String         @id @default(uuid())
-  userId    String
+  userId    String?
   word      String
   meaning   String
+  phonetic  String?
+  audioUrl  String?
   example   String?
   topic     String?
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
-  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
   schedule  VocabSchedule?
 
   @@index([userId])

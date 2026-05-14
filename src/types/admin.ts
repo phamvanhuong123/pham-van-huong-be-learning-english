@@ -85,8 +85,6 @@ export interface SubscriptionUpdateBody {
   rejectReason?: string;         // bắt buộc khi status = REJECTED
 }
 
-// ─── Questions ─────────────────────────────────────────────────────────────
-
 export type QuestionDifficulty = 'EASY' | 'MEDIUM' | 'HARD';
 export type OptionLabel = 'A' | 'B' | 'C' | 'D';
 export type QuestionStatus = 'DRAFT' | 'PUBLISHED';
@@ -98,31 +96,34 @@ export interface QuestionOption {
 }
 
 export interface QuestionCreateBody {
-  examId: string;
-  passageGroupId?: string; // Liên kết với cụm bài đọc (nếu có)
+  examId?: string | null;
+  passageGroupId?: string;
   order: number;
   questionText: string | null;
   options: QuestionOption[];
   explanation: string;
-  grammarTopic: string;
+  grammarTopic?: string;
+  grammarTopicId?: string | null; // Liên kết tới GrammarTopic mới
   difficulty: QuestionDifficulty;
   metadata?: any;
   status?: QuestionStatus;
 }
 
 export interface QuestionUpdateBody {
+  examId?: string | null;
   passageGroupId?: string;
   order?: number;
   questionText?: string | null;
   options?: QuestionOption[];
   explanation?: string;
   grammarTopic?: string;
+  grammarTopicId?: string | null;
   difficulty?: QuestionDifficulty;
   metadata?: any;
   status?: QuestionStatus;
 }
 
-export type MediaType = 'TEXT' | 'AUDIO' | 'IMAGE';
+export type MediaType = 'TEXT' | 'AUDIO' | 'IMAGE' | 'VIDEO';
 
 export interface PassageCreateBody {
   content?: string;
@@ -203,6 +204,32 @@ export interface AdminQuestionItem {
 export interface AdminQuestionsResponse {
   questions: AdminQuestionItem[];
   pagination: PaginationMeta;
+}
+
+// ─── Grammar Topics ───────────────────────────────────────────────────────
+
+export interface GrammarTopicCreateBody {
+  name: string;
+  slug: string;
+  description?: string;
+}
+
+export interface GrammarTopicUpdateBody {
+  name?: string;
+  slug?: string;
+  description?: string;
+}
+
+export interface GrammarTopicItem {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+  _count?: {
+    questions: number;
+  };
 }
 
 export interface AdminExamItem {

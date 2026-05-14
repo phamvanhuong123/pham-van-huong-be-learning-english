@@ -65,6 +65,9 @@ cron.schedule(
 
       for (const schedule of dueSchedules) {
         const { userId, user } = schedule.vocab;
+        
+        if (!userId || !user) continue;
+
         const existing = userMap.get(userId);
 
         if (existing) {

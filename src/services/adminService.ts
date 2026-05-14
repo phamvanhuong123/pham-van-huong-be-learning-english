@@ -12,17 +12,20 @@ import {
   UserUpdateBody,
   AdminSubscriptionsResponse,
   SubscriptionUpdateBody,
-  QuestionCreateBody,
+  PassageGroupCreateBody,
+  GrammarTopicCreateBody,
+  GrammarTopicUpdateBody,
+  GrammarTopicItem,
   QuestionUpdateBody,
-  ExamCreateBody,
-  ExamUpdateBody,
+  QuestionCreateBody,
+  AdminExamsResponse,
   BroadcastBody,
   BroadcastResponse,
-  AdminBroadcastsResponse,
+  ExamCreateBody,
+  ExamUpdateBody,
   AdminQuestionsResponse,
+  AdminBroadcastsResponse,
   AdminQuestionItem,
-  AdminExamsResponse,
-  PassageGroupCreateBody,
 } from '../types/admin';
 import { StatusCodes } from 'http-status-codes';
 import { socketEmitter } from '../sockets/socketEmitter';
@@ -372,18 +375,14 @@ export const createQuestion = async (body: QuestionCreateBody) => {
     throw new ApiError('Phần giải thích phải có ít nhất 20 ký tự', StatusCodes.BAD_REQUEST);
   }
 
-  const exam = await prisma.exam.findUnique({ where: { id: body.examId } });
-  if (!exam) {
-    throw new ApiError('Không tìm thấy đề thi', StatusCodes.NOT_FOUND);
-  }
-
   const question = await prisma.question.create({
     data: {
-      examId: body.examId,
+      examId: body.examId ?? null,
       passageGroupId: body.passageGroupId ?? null,
       order: body.order,
       questionText: body.questionText,
       grammarTopic: body.grammarTopic,
+      grammarTopicId: body.grammarTopicId ?? null,
       explanation: body.explanation,
       difficulty: body.difficulty as any,
       metadata: body.metadata,
@@ -395,7 +394,7 @@ export const createQuestion = async (body: QuestionCreateBody) => {
         })),
       },
     },
-    include: { options: true },
+    include: { options: true, exam: { select: { title: true } }, grammarTopicRel: true },
   });
 
   return question;
@@ -421,11 +420,14 @@ export const updateQuestion = async (questionId: string, body: QuestionUpdateBod
   }
 
   const updateData: any = {};
+  if (body.examId !== undefined) updateData.examId = body.examId;
   if (body.order !== undefined) updateData.order = body.order;
   if (body.passageGroupId !== undefined) updateData.passageGroupId = body.passageGroupId;
   if (body.questionText !== undefined) updateData.questionText = body.questionText;
   if (body.grammarTopic !== undefined) updateData.grammarTopic = body.grammarTopic;
+  if (body.grammarTopicId !== undefined) updateData.grammarTopicId = body.grammarTopicId;
   if (body.explanation !== undefined) updateData.explanation = body.explanation;
+  if (body.difficulty !== undefined) updateData.difficulty = body.difficulty;
   if (body.metadata !== undefined) updateData.metadata = body.metadata;
 
   if (body.options) {
@@ -720,6 +722,7 @@ export const getAdminQuestions = async (query: {
       include: {
         options: true,
         exam: { select: { title: true, difficulty: true } },
+        grammarTopicRel: true,
         passageGroup: {
           include: { passages: true }
         }
@@ -732,14 +735,14 @@ export const getAdminQuestions = async (query: {
     questions: questions.map((q) => ({
       id: q.id,
       examId: q.examId,
-      examTitle: q.exam.title,
+      examTitle: q.exam?.title,
       order: q.order,
       passageGroup: q.passageGroup,
       passageGroupId: q.passageGroupId,
       questionText: q.questionText,
-      grammarTopic: q.grammarTopic,
+      grammarTopic: q.grammarTopicRel?.name ?? q.grammarTopic,
       explanation: q.explanation,
-      difficulty: q.exam.difficulty as any,
+      difficulty: q.difficulty ?? (q.exam?.difficulty as any),
       options: q.options.map((o) => ({
         label: o.label,
         text: o.text,
@@ -1063,3 +1066,82 @@ async function cleanupQuestionsAssets(questions: any[]) {
     }
   }
 }
+
+// ─── Grammar Topics ───────────────────────────────────────────────────────
+
+export const getAdminGrammarTopics = async (): Promise<GrammarTopicItem[]> => {
+  const topics = await prisma.grammarTopic.findMany({
+    orderBy: { name: 'asc' },
+    include: {
+      _count: { select: { questions: true } },
+    },
+  });
+
+  return topics.map((t) => ({
+    id: t.id,
+    name: t.name,
+    slug: t.slug,
+    description: t.description,
+    createdAt: t.createdAt.toISOString(),
+    updatedAt: t.updatedAt.toISOString(),
+    _count: t._count,
+  }));
+};
+
+export const createGrammarTopic = async (body: GrammarTopicCreateBody): Promise<GrammarTopicItem> => {
+  const existing = await prisma.grammarTopic.findUnique({ where: { slug: body.slug } });
+  if (existing) {
+    throw new ApiError('Slug này đã tồn tại', StatusCodes.CONFLICT);
+  }
+
+  const topic = await prisma.grammarTopic.create({
+    data: {
+      name: body.name,
+      slug: body.slug,
+      description: body.description,
+    },
+  });
+
+  return {
+    ...topic,
+    createdAt: topic.createdAt.toISOString(),
+    updatedAt: topic.updatedAt.toISOString(),
+  };
+};
+
+export const updateGrammarTopic = async (
+  id: string,
+  body: GrammarTopicUpdateBody,
+): Promise<GrammarTopicItem> => {
+  const topic = await prisma.grammarTopic.findUnique({ where: { id } });
+  if (!topic) {
+    throw new ApiError('Không tìm thấy chủ đề ngữ pháp', StatusCodes.NOT_FOUND);
+  }
+
+  if (body.slug && body.slug !== topic.slug) {
+    const existing = await prisma.grammarTopic.findUnique({ where: { slug: body.slug } });
+    if (existing) {
+      throw new ApiError('Slug này đã tồn tại', StatusCodes.CONFLICT);
+    }
+  }
+
+  const updated = await prisma.grammarTopic.update({
+    where: { id },
+    data: body,
+  });
+
+  return {
+    ...updated,
+    createdAt: updated.createdAt.toISOString(),
+    updatedAt: updated.updatedAt.toISOString(),
+  };
+};
+
+export const deleteGrammarTopic = async (id: string): Promise<void> => {
+  const topic = await prisma.grammarTopic.findUnique({ where: { id } });
+  if (!topic) {
+    throw new ApiError('Không tìm thấy chủ đề ngữ pháp', StatusCodes.NOT_FOUND);
+  }
+
+  await prisma.grammarTopic.delete({ where: { id } });
+};
