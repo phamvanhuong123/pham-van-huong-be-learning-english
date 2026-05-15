@@ -21,6 +21,10 @@ const formatResultResponse = (result: Result & { exam?: any, details: (ResultDet
       title: result.exam.title,
       part: result.exam.part
     } : undefined,
+    grammarTopic: (result as any).grammarTopic ? {
+      id: (result as any).grammarTopic.id,
+      name: (result as any).grammarTopic.name
+    } : undefined,
     details: result.details.map((d) => {
       const correctOption = d.question.options.find((o) => o.isCorrect);
       return {
@@ -93,7 +97,7 @@ export const getExams = async (query: ExamQuery, userId?: string) => {
       _max: { score: true }
     });
     bestResults.forEach(r => {
-      if (r._max.score !== null) {
+      if (r.examId && r._max.score !== null) {
         userScores[r.examId] = r._max.score;
       }
     });
@@ -325,6 +329,7 @@ export const getResultById = async (resultId: string, userId: string) => {
     where: { id: resultId },
     include: {
       exam: true,
+      grammarTopic: true,
       details: {
         include: {
           question: {
@@ -381,6 +386,12 @@ export const getResults = async (query: ResultQuery, userId: string) => {
             part: true,
             difficulty: true
           }
+        },
+        grammarTopic: {
+          select: {
+            id: true,
+            name: true
+          }
         }
       }
     }),
@@ -391,9 +402,11 @@ export const getResults = async (query: ResultQuery, userId: string) => {
     results: results.map(r => ({
       id: r.id,
       examId: r.examId,
-      examTitle: r.exam.title,
-      part: r.exam.part,
-      difficulty: r.exam.difficulty,
+      grammarTopicId: r.grammarTopicId,
+      title: r.exam?.title ?? r.grammarTopic?.name ?? 'Luyện tập tự do',
+      type: r.exam ? 'EXAM' : 'GRAMMAR',
+      part: r.exam?.part ?? 'GRAMMAR',
+      difficulty: r.exam?.difficulty ?? 'MEDIUM',
       score: r.score,
       correctQ: r.correctQ,
       totalQ: r.totalQ,

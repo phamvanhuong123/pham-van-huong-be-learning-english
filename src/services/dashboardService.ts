@@ -37,18 +37,21 @@ export const getDashboardData = async (userId: string): Promise<DashboardRespons
     PART7: calculateAccuracy(results, 'PART7'),
   };
 
-  const recentResults = results.slice(0, 3).map((r) => ({
-    id: r.id,
-    score: r.score,
-    totalQ: r.totalQ,
-    correctQ: r.correctQ,
-    submittedAt: r.submittedAt.toISOString(),
-    exam: {
-      id: r.exam.id,
-      title: r.exam.title,
-      part: r.exam.part,
-    },
-  }));
+  const recentResults = results
+    .filter((r) => r.exam)
+    .slice(0, 3)
+    .map((r) => ({
+      id: r.id,
+      score: r.score,
+      totalQ: r.totalQ,
+      correctQ: r.correctQ,
+      submittedAt: r.submittedAt.toISOString(),
+      exam: {
+        id: r.exam!.id,
+        title: r.exam!.title,
+        part: r.exam!.part,
+      },
+    }));
 
   return {
     stats: {
@@ -63,7 +66,7 @@ export const getDashboardData = async (userId: string): Promise<DashboardRespons
 };
 
 function calculateAccuracy(results: any[], part: string): number | null {
-  const partResults = results.filter((r) => r.exam.part === part);
+  const partResults = results.filter((r) => r.exam?.part === part);
   if (partResults.length === 0) return null;
 
   const totalQ = partResults.reduce((acc, r) => acc + r.totalQ, 0);

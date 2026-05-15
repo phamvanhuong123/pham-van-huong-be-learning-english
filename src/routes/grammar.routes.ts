@@ -9,5 +9,6 @@ router.use(authenticate);
 
 router.get('/topics', grammarController.getTopics);
 router.get('/practice/:slug', grammarController.getPractice);
+router.post('/submit', grammarController.submitPractice);
 
 export default router;

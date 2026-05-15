@@ -49,11 +49,13 @@ export const getOverview = async (userId: string): Promise<OverviewResponse> => 
       : Math.round(
           (results.reduce((s, r) => s + r.correctQ, 0) / totalQuestions) * 100,
         );
-  const flat = results.map((r) => ({
-    correctQ: r.correctQ,
-    totalQ: r.totalQ,
-    examPart: r.exam.part,
-  }));
+  const flat = results
+    .filter((r) => r.exam)
+    .map((r) => ({
+      correctQ: r.correctQ,
+      totalQ: r.totalQ,
+      examPart: r.exam!.part,
+    }));
 
   const accuracyByPart: AccuracyByPart = {
     PART5: calcAccuracyByPart(flat, 'PART5'),
@@ -99,6 +101,7 @@ export const getProgress = async (
   }
 
   for (const r of results) {
+    if (!r.exam) continue;
     const key = getWeekStart(r.submittedAt);
     const bucket = weekMap.get(key) ?? [];
     bucket.push({

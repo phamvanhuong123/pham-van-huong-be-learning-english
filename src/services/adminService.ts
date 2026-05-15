@@ -741,8 +741,10 @@ export const getAdminQuestions = async (query: {
       passageGroupId: q.passageGroupId,
       questionText: q.questionText,
       grammarTopic: q.grammarTopicRel?.name ?? q.grammarTopic,
+      grammarTopicId: q.grammarTopicId,
       explanation: q.explanation,
       difficulty: q.difficulty ?? (q.exam?.difficulty as any),
+      metadata: q.metadata,
       options: q.options.map((o) => ({
         label: o.label,
         text: o.text,

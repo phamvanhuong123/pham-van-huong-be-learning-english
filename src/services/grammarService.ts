@@ -44,3 +44,44 @@ export const getQuestionsByTopic = async (slug: string, limit: number = 10) => {
     .sort(() => Math.random() - 0.5)
     .slice(0, limit);
 };
+
+export const submitGrammarPractice = async (userId: string, data: {
+  topicSlug?: string;
+  answers: { questionId: string; optionId: string | null; isCorrect: boolean }[];
+  timeTaken: number;
+}) => {
+  const { topicSlug, answers, timeTaken } = data;
+  
+  let grammarTopicId: string | null = null;
+  if (topicSlug) {
+    const topic = await prisma.grammarTopic.findUnique({ where: { slug: topicSlug } });
+    if (topic) grammarTopicId = topic.id;
+  }
+
+  const correctQ = answers.filter(a => a.isCorrect).length;
+  const totalQ = answers.length;
+  const score = totalQ > 0 ? Math.round((correctQ / totalQ) * 100) : 0;
+
+  const result = await prisma.result.create({
+    data: {
+      userId,
+      grammarTopicId,
+      score,
+      totalQ,
+      correctQ,
+      timeTaken,
+      details: {
+        create: answers.map(a => ({
+          questionId: a.questionId,
+          selectedOptionId: a.optionId,
+          isCorrect: a.isCorrect
+        }))
+      }
+    },
+    include: {
+      grammarTopic: true
+    }
+  });
+
+  return result;
+};

@@ -194,6 +194,7 @@ export interface AdminQuestionItem {
   passageGroup?: any;
   questionText: string | null;
   grammarTopic: string | null;
+  grammarTopicId: string | null;
   explanation: string | null;
   difficulty: QuestionDifficulty;
   options: QuestionOption[];

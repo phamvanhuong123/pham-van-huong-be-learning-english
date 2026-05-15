@@ -21,3 +21,14 @@ export const getPractice = async (req: Request, res: Response, next: NextFunctio
     next(error);
   }
 };
+
+export const submitPractice = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user!.id;
+    const body = req.body;
+    const result = await grammarService.submitGrammarPractice(userId, body);
+    res.status(StatusCodes.CREATED).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
