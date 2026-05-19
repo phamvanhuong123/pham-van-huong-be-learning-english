@@ -1,10 +1,8 @@
-import express from 'express'
+import { Router } from 'express'
 
-const route = express.Router()
-route.get('/status', (req, res) => {
-  res.status(200).json({
-    message: 'OK'
-  });
-});
+import authRoute from '@/routes/v1/authRoutes'
+const route = Router()
+
+route.use('/auth',authRoute)
 
 export const APIs_v1 = route
