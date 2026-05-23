@@ -10,6 +10,11 @@ route.get('/status', (req, res) => { res.status(StatusCodes.OK).json({messge : "
 //login
 route.post('/login',authController.login)
 
+//logout
+route.delete('/logout', authController.logout)
+
+//refresh token
+route.put('/refresh-token', authController.refreshToken)
 
 //register
 route.post('/register',authValidator.register,authController.register)

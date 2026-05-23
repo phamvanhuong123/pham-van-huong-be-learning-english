@@ -4,7 +4,7 @@ import { EmailDeliveryError } from "@/utils/EmailDeliveryError";
 import { verifyEmailTemplate } from "@/utils/emailTemplates";
 import { MailOptions } from "nodemailer/lib/json-transport";
 
-const CLIENT_URL = env.BUILD_MODE === "dev" ? "localhost" : "abc";
+const CLIENT_URL = env.BUILD_MODE === "dev" ? "http://localhost:5173" : "abc";
 const from = `"TOEIC Master" <${env.SMTP_FROM || env.SMTP_USER || "noreply@toeicmaster.vn"}>`;
 
 const sendVerificationEmail = async (

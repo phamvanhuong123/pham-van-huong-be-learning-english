@@ -100,3 +100,51 @@ model UserSession {
   @@index([userId, isActive])
   @@index([userId, lastActiveAt])
 }
+
+
+// ─────────────────────────────────────────
+// Exam
+// ─────────────────────────────────────────
+model Exam {
+  id           String      @id @default(uuid())
+  title        String
+  description  String?
+  part         ExamPart
+  difficulty   Difficulty
+  type         ExamType    @default(FREE)
+  duration     Int         
+  isPublished  Boolean     @default(false)
+  isDeleted    Boolean     @default(false)
+  deletedAt    DateTime?
+  parentExamId String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  parentExam   Exam?  @relation("ExamParts", fields: [parentExamId], references: [id])
+  childExams   Exam[] @relation("ExamParts")
+
+  @@index([part, difficulty, type, isPublished, isDeleted])
+  @@index([isDeleted, deletedAt])
+}
+
+enum ExamPart {
+  PART1
+  PART2
+  PART3
+  PART4
+  PART5
+  PART6
+  PART7
+  FULL
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum ExamType {
+  FREE
+  VIP
+}

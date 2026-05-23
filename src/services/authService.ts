@@ -6,7 +6,7 @@ import { LoginPayload, RegisterRequest } from "@/types/auth.type";
 import ApiError from "@/utils/ApiError";
 import { EmailDeliveryError } from "@/utils/EmailDeliveryError";
 import { generateRandomToken, hashToken } from "@/utils/generateRandom";
-import { generateToken } from "@/utils/jwtTokenHelper";
+import { generateToken, verifyToken } from "@/utils/jwtTokenHelper";
 import bcrypt from "bcrypt";
 import { StatusCodes } from "http-status-codes";
 
@@ -131,8 +131,26 @@ const verifyEmail = async (token: string) => {
   return true;
 };
 
+const refreshToken = async (token: string) => {
+  try {
+    const decoded = verifyToken(token, env.REFRESH_TOKEN_SECRET_SIGNATURE!) as any;
+    const userInfo = {
+      email: decoded.email,
+      name: decoded.name,
+      avatarUrl: decoded.avatarUrl,
+      id: decoded.id,
+      role: decoded.role
+    };
+    const newAccessToken = generateToken(userInfo, env.ACCESS_TOKEN_SECRET_SIGNATURE!, '1h');
+    return newAccessToken;
+  } catch (error) {
+    throw new ApiError("Token không hợp lệ hoặc đã hết hạn", StatusCodes.UNAUTHORIZED);
+  }
+};
+
 export const authService = {
   register,
   verifyEmail,
-  login
+  login,
+  refreshToken
 };

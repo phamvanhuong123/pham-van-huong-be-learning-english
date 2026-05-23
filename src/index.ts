@@ -3,13 +3,15 @@ import { APIs_v1 } from "@/routes/v1";
 import { prisma } from "@/config/prisma";
 import exitHook from "exit-hook";
 import { errorHandler } from "@/middlewares/errorHandler";
-import  cookieParser from 'cookie-parser';
+import cookieParser from 'cookie-parser';
+import cors from 'cors';
 const START_SERVER = () => {
   const port = 5000;
   const app = express();
+  app.use(cors({ credentials: true, origin: ["http://localhost:5173"] }))
   app.use(cookieParser())
   app.use(express.json())
-  app.use('/api/v1',APIs_v1);
+  app.use('/api/v1', APIs_v1);
   app.use(errorHandler)
   app.listen(port, () => {
     console.log(`Listen dev :http://localhost:${port}`);
