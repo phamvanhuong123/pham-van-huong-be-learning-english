@@ -57,8 +57,37 @@ const verifyEmail = async(req : Request, res : Response, next : NextFunction) =>
     next(error)
   }
 }
+const refreshToken = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const token = req.cookies?.refreshToken;
+    if (!token) {
+      throw new ApiError("Refresh token không tồn tại", StatusCodes.UNAUTHORIZED);
+    }
+    
+    const accessToken = await authService.refreshToken(token);
+    res.status(StatusCodes.OK).json({ accessToken });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const logout = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none'
+    });
+    res.status(StatusCodes.OK).json({ message: "Đăng xuất thành công" });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const authController = {
   register,
   verifyEmail,
-  login
+  login,
+  refreshToken,
+  logout
 };

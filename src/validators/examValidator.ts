@@ -34,7 +34,8 @@ const updateExam = async (req: Request, res: Response, next: NextFunction) => {
         difficulty: z.enum(['EASY', 'MEDIUM', 'HARD'], { error: 'Độ khó không hợp lệ' }).optional(),
         type: z.enum(['FREE', 'VIP'], { error: 'Loại bài thi không hợp lệ' }).optional(),
         duration: z.number({ error: 'Thời gian làm bài không hợp lệ' }).int("Thời gian làm bài phải là số nguyên").positive("Thời gian làm bài phải lớn hơn 0").optional(),
-        childrenIdExam: z.array(z.string()).optional()
+        childrenIdExam: z.array(z.string()).optional(),
+        isPublished: z.boolean().optional()
     })
 
     try {

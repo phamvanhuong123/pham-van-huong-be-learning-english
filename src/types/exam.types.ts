@@ -21,5 +21,6 @@ export interface ExamUpdatePayload {
     difficulty?: QuestionDifficulty,
     type?: ExamType,
     duration?: number,
-    childrenIdExam?: string[]
+    childrenIdExam?: string[],
+    isPublished?: boolean
 }

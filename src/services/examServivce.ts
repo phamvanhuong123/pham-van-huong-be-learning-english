@@ -1,6 +1,7 @@
 import { prisma } from "@/config/prisma"
 import { ExamCreatePayload, ExamUpdatePayload } from "@/types/exam.types"
 import ApiError from "@/utils/ApiError"
+import { EXAM_SELECT_FIELDS } from "@/utils/contanst"
 import { StatusCodes } from "http-status-codes"
 
 
@@ -47,17 +48,11 @@ const createExam = async (data: ExamCreatePayload) => {
 
 const getListExam = async () => {
   return await prisma.exam.findMany({
-    select: {
-      id: true,
-      title: true,
-      description: true,
-      part: true,
-      difficulty: true,
-      duration: true,
-      type: true,
-      isPublished: true,
-      parentExamId: true
-    }
+    where: {
+      isDeleted: false
+    },
+
+    select: EXAM_SELECT_FIELDS
   })
 }
 const deleteExam = async (id: string) => {
@@ -113,7 +108,8 @@ const updateExam = async (id: string, data: ExamUpdatePayload) => {
     // 1. Cập nhật Exam hiện tại (Nếu không phải FULL, tự động set parentExamId = null)
     const updatedExam = await tx.exam.update({
       where: { id },
-      data: { ...rest, parentExamId: targetPart !== 'FULL' ? null : undefined }
+      data: { ...rest, parentExamId: targetPart !== 'FULL' ? null : undefined },
+      select: EXAM_SELECT_FIELDS
     })
 
     // 2. Giải phóng đề con cũ (Chạy khi trước đó là FULL và: đổi sang part thường HOẶC truyền danh sách con mới)
@@ -125,7 +121,8 @@ const updateExam = async (id: string, data: ExamUpdatePayload) => {
     if (targetPart === 'FULL' && childrenIdExam?.length) {
       const updateCount = await tx.exam.updateMany({
         where: { id: { in: childrenIdExam }, isDeleted: false, parentExamId: null, part: { not: 'FULL' } },
-        data: { parentExamId: id }
+        data: { parentExamId: id },
+
       })
       if (updateCount.count !== childrenIdExam.length) {
         throw new ApiError("Danh sách đề con không hợp lệ.", StatusCodes.BAD_REQUEST)
