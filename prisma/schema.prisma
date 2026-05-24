@@ -101,27 +101,28 @@ model UserSession {
   @@index([userId, lastActiveAt])
 }
 
-
 // ─────────────────────────────────────────
 // Exam
 // ─────────────────────────────────────────
 model Exam {
-  id           String      @id @default(uuid())
+  id           String     @id @default(uuid())
   title        String
   description  String?
   part         ExamPart
   difficulty   Difficulty
-  type         ExamType    @default(FREE)
-  duration     Int         
-  isPublished  Boolean     @default(false)
-  isDeleted    Boolean     @default(false)
+  type         ExamType   @default(FREE)
+  duration     Int
+  isPublished  Boolean    @default(false)
+  isDeleted    Boolean    @default(false)
   deletedAt    DateTime?
   parentExamId String?
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
-  parentExam   Exam?  @relation("ExamParts", fields: [parentExamId], references: [id])
-  childExams   Exam[] @relation("ExamParts")
+  parentExam    Exam?          @relation("ExamParts", fields: [parentExamId], references: [id])
+  childExams    Exam[]         @relation("ExamParts")
+  passageGroups PassageGroup[]
+  questions     Question[]
 
   @@index([part, difficulty, type, isPublished, isDeleted])
   @@index([isDeleted, deletedAt])
@@ -147,4 +148,100 @@ enum Difficulty {
 enum ExamType {
   FREE
   VIP
+}
+
+// ─────────────────────────────────────────
+// GrammarTopic, PassageGroup, Passage, Question, Option
+// ─────────────────────────────────────────
+
+model GrammarTopic {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  slug        String  @unique
+  description String?
+
+  questions Question[]
+}
+
+model PassageGroup {
+  id     String      @id @default(uuid())
+  examId String?
+  type   PassageType @default(SINGLE)
+
+  exam      Exam?      @relation(fields: [examId], references: [id], onDelete: SetNull)
+  passages  Passage[]
+  questions Question[]
+
+  @@index([examId])
+}
+
+model Passage {
+  id             String    @id @default(uuid())
+  passageGroupId String
+  content        String?
+  transcript     String?   // Lời thoại (Part 3,4) hoặc Bản dịch (Part 6,7)
+  order          Int
+  mediaUrl       String?
+  mediaType      MediaType @default(TEXT)
+
+  passageGroup PassageGroup @relation(fields: [passageGroupId], references: [id], onDelete: Cascade)
+
+  @@index([passageGroupId])
+}
+
+model Question {
+  id             String     @id @default(uuid())
+  examId         String?
+  passageGroupId String?
+  grammarTopicId String?
+  order          Int        @default(0)
+  questionText   String?
+  difficulty     Difficulty @default(MEDIUM)
+  explanation    String?
+  metadata       Json?
+  isDeleted      Boolean    @default(false)
+  deletedAt      DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  exam         Exam?         @relation(fields: [examId], references: [id], onDelete: SetNull)
+  passageGroup PassageGroup? @relation(fields: [passageGroupId], references: [id], onDelete: SetNull)
+  grammarTopic GrammarTopic? @relation(fields: [grammarTopicId], references: [id], onDelete: SetNull)
+  options      Option[]
+
+  @@index([examId, order])
+  @@index([grammarTopicId])
+  @@index([isDeleted])
+}
+
+model Option {
+  id         String      @id @default(uuid())
+  questionId String
+  label      OptionLabel
+  text       String
+  isCorrect  Boolean     @default(false)
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId])
+}
+
+enum PassageType {
+  SINGLE
+  DOUBLE
+  TRIPLE
+}
+
+enum MediaType {
+  TEXT
+  AUDIO
+  IMAGE
+  VIDEO
+}
+
+enum OptionLabel {
+  A
+  B
+  C
+  D
 }
