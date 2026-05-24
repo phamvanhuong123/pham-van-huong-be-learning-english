@@ -4,7 +4,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "cross-env BUILD_MODE=dev nodemon --exec ts-node -r tsconfig-paths/register src/index.ts"
+    "dev": "cross-env BUILD_MODE=dev nodemon --exec ts-node -r tsconfig-paths/register src/index.ts",
+    "seed1": "ts-node src/mockData/seed1.ts",
+    "seed2": "ts-node src/mockData/seed2.ts"
   },
   "author": "",
   "license": "ISC",
