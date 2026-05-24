@@ -34,6 +34,8 @@ model User {
 
   userRoles UserRole[]
   sessions  UserSession[]
+  results   Result[]
+  adminLogs AdminLog[]
 
   @@index([email])
   @@index([verificationToken])
@@ -123,6 +125,7 @@ model Exam {
   childExams    Exam[]         @relation("ExamParts")
   passageGroups PassageGroup[]
   questions     Question[]
+  results       Result[]
 
   @@index([part, difficulty, type, isPublished, isDeleted])
   @@index([isDeleted, deletedAt])
@@ -208,6 +211,7 @@ model Question {
   passageGroup PassageGroup? @relation(fields: [passageGroupId], references: [id], onDelete: SetNull)
   grammarTopic GrammarTopic? @relation(fields: [grammarTopicId], references: [id], onDelete: SetNull)
   options      Option[]
+  resultDetails ResultDetail[]
 
   @@index([examId, order])
   @@index([grammarTopicId])
@@ -244,4 +248,69 @@ enum OptionLabel {
   B
   C
   D
+}
+
+// ─────────────────────────────────────────
+// Result
+// ─────────────────────────────────────────
+model Result {
+  id               String   @id @default(uuid())
+  userId           String
+  examId           String?
+  grammarTopicId   String?
+  status           String   @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, ABANDONED
+  score            Int      @default(0)
+  totalQ           Int      @default(0)
+  correctQ         Int      @default(0)
+  timeTaken        Int      @default(0)        // giây
+  startedAt        DateTime?                   // validate server-side
+  submittedAt      DateTime?
+  listeningScore   Int?                        // 0-495
+  readingScore     Int?                        // 0-495
+  listeningCorrect Int?
+  readingCorrect   Int?
+  tabSwitchCount   Int      @default(0)        // anti-cheat
+  isFullTest       Boolean  @default(false)
+  partBreakdown    Json?    // { PART1: { total: 6, correct: 5 }, ... }
+  weakPoints       Json?    // ["PART4", "PART7"]
+  xpEarned         Int      @default(0)
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exam         Exam?         @relation(fields: [examId], references: [id], onDelete: SetNull)
+  resultDetails ResultDetail[]
+
+  @@index([userId, submittedAt])
+  @@index([examId])
+}
+
+model ResultDetail {
+  id               String  @id @default(uuid())
+  resultId         String
+  questionId       String
+  selectedLabel    OptionLabel?
+  isCorrect        Boolean @default(false)
+  timeTakenSeconds Int?
+
+  result   Result   @relation(fields: [resultId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([resultId, questionId])
+  @@index([resultId])
+}
+
+model AdminLog {
+  id         String   @id @default(uuid())
+  adminId    String
+  action     String   // "user.ban", "subscription.approve"...
+  targetType String   // "User", "Subscription", "Exam"...
+  targetId   String?
+  detail     Json?    // snapshot trước/sau
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  admin User @relation(fields: [adminId], references: [id])
+
+  @@index([adminId])
+  @@index([action, createdAt])
+  @@index([targetType, targetId])
 }
