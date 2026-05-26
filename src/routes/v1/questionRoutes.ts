@@ -2,17 +2,21 @@ import { Router } from "express";
 import { questionController } from "@/controllers/questionController";
 import { questionValidator } from "@/validators/questionValidator";
 import { uploadSingleMedia } from "@/middlewares/uploadMiddleware";
+import { authenticate } from "@/middlewares/authenticate";
+import { authorize } from "@/middlewares/authorize";
 
 const route = Router();
 
 // ─── Upload media ─────────────────────────────────────────────────
 // POST /question/upload – upload 1 file, nhận về URL để dùng khi tạo câu hỏi
-route.post("/upload", uploadSingleMedia, questionController.uploadMedia);
+route.post("/upload", authenticate, authorize('question.manage'), uploadSingleMedia, questionController.uploadMedia);
 
 // ─── Câu hỏi đơn – Part 5 ────────────────────────────────────────
 // POST /question/standalone
 route.post(
   "/standalone",
+  authenticate,
+  authorize('question.manage'),
   questionValidator.createStandaloneQuestion,
   questionController.createStandaloneQuestion
 );
@@ -21,6 +25,8 @@ route.post(
 // POST /question/group
 route.post(
   "/group",
+  authenticate,
+  authorize('question.manage'),
   questionValidator.createQuestionGroup,
   questionController.createQuestionGroup
 );
@@ -31,12 +37,14 @@ route.get("/group/:groupId", questionController.getGroupDetail);
 // PATCH /question/group/:groupId
 route.patch(
   "/group/:groupId",
+  authenticate,
+  authorize('question.manage'),
   questionValidator.updatePassageGroup,
   questionController.updatePassageGroup
 );
 
 // DELETE /question/group/:groupId
-route.delete("/group/:groupId", questionController.deleteQuestionGroup);
+route.delete("/group/:groupId", authenticate, authorize('question.manage'), questionController.deleteQuestionGroup);
 
 // ─── Lấy danh sách câu hỏi toàn hệ thống ──────────────────────────
 // GET /question
@@ -48,14 +56,19 @@ route.get("/exam/:examId", questionController.getQuestionsByExam);
 
 // ─── Câu hỏi đơn lẻ – phải đặt SAU các route cụ thể ─────────────
 // (tránh Express match 'group' hay 'exam' như một :id param)
+// GET /question/:id/note
+route.get("/:id/note", authenticate, questionController.getNote);
+
+// POST /question/:id/note
+route.post("/:id/note", authenticate, questionController.upsertNote);
 
 // GET /question/:id
 route.get("/:id", questionController.getQuestionDetail);
 
 // PATCH /question/:id
-route.patch("/:id", questionValidator.updateQuestion, questionController.updateQuestion);
+route.patch("/:id", authenticate, authorize('question.manage'), questionValidator.updateQuestion, questionController.updateQuestion);
 
 // DELETE /question/:id
-route.delete("/:id", questionController.deleteQuestion);
+route.delete("/:id", authenticate, authorize('question.manage'), questionController.deleteQuestion);
 
 export default route;

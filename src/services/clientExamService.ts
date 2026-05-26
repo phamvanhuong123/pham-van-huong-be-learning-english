@@ -53,6 +53,33 @@ export const clientExamService = {
     const exam = await prisma.exam.findUnique({
       where: { id: examId, isPublished: true, isDeleted: false },
       include: {
+        childExams: {
+          where: { isPublished: true, isDeleted: false },
+          orderBy: { createdAt: 'asc' }, // Giữ thứ tự part
+          include: {
+            passageGroups: {
+              include: {
+                passages: {
+                  orderBy: { order: "asc" }
+                },
+                questions: {
+                  where: { isDeleted: false },
+                  orderBy: { order: "asc" },
+                  include: {
+                    options: true
+                  }
+                }
+              }
+            },
+            questions: {
+              where: { isDeleted: false, passageGroupId: null },
+              orderBy: { order: "asc" },
+              include: {
+                options: true
+              }
+            }
+          }
+        },
         passageGroups: {
           include: {
             passages: {
@@ -80,11 +107,12 @@ export const clientExamService = {
     if (!exam) return null;
 
     // Lọc bỏ đáp án và transcript (Anti-Cheat)
-    const filterQuestions = (questions: any[], part: string) => {
+    const filterQuestions = (questions: any[], fallbackPart: string) => {
       return questions.map(q => {
-        // Part 1, 2 ẩn text câu hỏi (Part 6 cần hiện text)
+        const questionPart = q.part || fallbackPart;
+        // Part 1 ẩn question text
         let questionText = q.questionText;
-        if (['PART1', 'PART2'].includes(part)) {
+        if (['PART1'].includes(questionPart)) {
           questionText = null;
         }
 
@@ -92,10 +120,11 @@ export const clientExamService = {
           id: q.id,
           order: q.order,
           questionText,
+          part: questionPart,
           options: q.options.map((opt: any) => {
             // Part 1, 2 ẩn text đáp án
             let text = opt.text;
-            if (['PART1', 'PART2'].includes(part)) {
+            if (['PART1', 'PART2'].includes(questionPart)) {
               text = null;
             }
             return {
@@ -108,20 +137,34 @@ export const clientExamService = {
       });
     };
 
-    const mappedPassageGroups = exam.passageGroups.map(pg => ({
-      id: pg.id,
-      passages: pg.passages.map(p => ({
-        id: p.id,
-        content: p.content,
-        mediaUrl: p.mediaUrl,
-        mediaType: p.mediaType,
-        order: p.order,
-        // Bỏ transcript
-      })),
-      questions: filterQuestions(pg.questions, exam.part)
-    }));
+    const mapPassageGroups = (passageGroups: any[], fallbackPart: string) => {
+      return passageGroups.map(pg => {
+        const groupPart = pg.questions.length > 0 ? (pg.questions[0].part || fallbackPart) : fallbackPart;
+        return {
+          id: pg.id,
+          part: groupPart,
+          passages: pg.passages.map((p: any) => ({
+            id: p.id,
+            content: p.content,
+            mediaUrl: p.mediaUrl,
+            mediaType: p.mediaType,
+            order: p.order,
+            // Bỏ transcript
+          })),
+          questions: filterQuestions(pg.questions, fallbackPart)
+        };
+      });
+    };
 
+    const mappedPassageGroups = mapPassageGroups(exam.passageGroups, exam.part);
     const mappedStandaloneQuestions = filterQuestions(exam.questions, exam.part);
+
+    if (exam.childExams && exam.childExams.length > 0) {
+      exam.childExams.forEach(child => {
+        mappedPassageGroups.push(...mapPassageGroups(child.passageGroups, child.part));
+        mappedStandaloneQuestions.push(...filterQuestions(child.questions, child.part));
+      });
+    }
 
     return {
       id: exam.id,
@@ -206,29 +249,61 @@ export const clientExamService = {
     const exam = result.exam;
     if (!exam) throw new ApiError("Không tìm thấy đề thi", StatusCodes.NOT_FOUND);
 
-    // Lấy toàn bộ câu hỏi của đề để chấm điểm
+    // Lấy toàn bộ câu hỏi của đề và các phần thi con (nếu có)
+    const childExams = await prisma.exam.findMany({
+      where: { parentExamId: exam.id, isDeleted: false, isPublished: true },
+      select: { id: true }
+    });
+    const examIds = [exam.id, ...childExams.map(c => c.id)];
+
     const allQuestions = await prisma.question.findMany({
-      where: { examId: exam.id },
-      include: { options: true }
+      where: {
+        OR: [
+          { examId: { in: examIds } },
+          { passageGroup: { examId: { in: examIds } } }
+        ],
+        isDeleted: false
+      },
+      include: { 
+        options: true,
+        exam: { select: { part: true } },
+        passageGroup: { include: { exam: { select: { part: true } } } }
+      }
     });
 
     let correctQ = 0;
     let listeningCorrect = 0;
     let readingCorrect = 0;
+    let listeningTotal = 0;
+    let readingTotal = 0;
 
-    const isListeningPart = (part: string, order: number) => {
-      if (part === 'FULL') return order <= 100; // Mặc định TOEIC 100 câu đầu là Nghe
-      return ['PART1', 'PART2', 'PART3', 'PART4'].includes(part);
-    };
+    const partBreakdown: Record<string, { total: number, correct: number }> = {};
 
     const detailsData = allQuestions.map(q => {
       const selectedLabel = answers[q.id] as OptionLabel | undefined;
       const correctOption = q.options.find(o => o.isCorrect);
       const isCorrect = selectedLabel === correctOption?.label;
 
+      const fallbackPart = q.exam?.part || q.passageGroup?.exam?.part || exam.part;
+      const currentPart = q.part || fallbackPart;
+
+      if (!partBreakdown[currentPart]) {
+        partBreakdown[currentPart] = { total: 0, correct: 0 };
+      }
+      partBreakdown[currentPart].total++;
+
+      const isListeningPart = ['PART1', 'PART2', 'PART3', 'PART4'].includes(currentPart);
+      if (isListeningPart) {
+        listeningTotal++;
+      } else {
+        readingTotal++;
+      }
+
       if (isCorrect) {
         correctQ++;
-        if (isListeningPart(exam.part, q.order)) {
+        partBreakdown[currentPart].correct++;
+
+        if (isListeningPart) {
           listeningCorrect++;
         } else {
           readingCorrect++;
@@ -243,6 +318,11 @@ export const clientExamService = {
       };
     });
 
+    // Conflict B4 Resolution: Calculate weak points (< 70% accuracy)
+    const weakPoints = Object.entries(partBreakdown)
+      .filter(([_, stats]) => stats.total > 0 && (stats.correct / stats.total) < 0.7)
+      .map(([part]) => part);
+
     // Tính điểm
     const isFullTest = exam.part === 'FULL';
     let totalScore = 0;
@@ -250,11 +330,11 @@ export const clientExamService = {
     let readingScore = 0;
 
     if (isFullTest) {
-      listeningScore = scoringHelper.getScaledScore('LISTENING', listeningCorrect);
-      readingScore = scoringHelper.getScaledScore('READING', readingCorrect);
+      listeningScore = scoringHelper.getScaledScore('LISTENING', listeningCorrect, listeningTotal);
+      readingScore = scoringHelper.getScaledScore('READING', readingCorrect, readingTotal);
       totalScore = listeningScore + readingScore;
     } else {
-      totalScore = scoringHelper.calculatePartialScore(correctQ);
+      totalScore = scoringHelper.calculatePartialScore(correctQ, allQuestions.length);
     }
 
     // Lưu DB sử dụng Transaction để đảm bảo tính toàn vẹn dữ liệu
@@ -280,7 +360,9 @@ export const clientExamService = {
           readingScore: isFullTest ? readingScore : null,
           listeningCorrect,
           readingCorrect,
-          isFullTest
+          isFullTest,
+          partBreakdown,
+          weakPoints
         }
       })
     ]);

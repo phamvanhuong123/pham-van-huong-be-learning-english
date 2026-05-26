@@ -36,10 +36,61 @@ model User {
   sessions  UserSession[]
   results   Result[]
   adminLogs AdminLog[]
+  questionNotes QuestionNote[]
+  sentBroadcasts Broadcast[]    @relation("BroadcastSender")
+  notifications  Notification[]
 
   @@index([email])
   @@index([verificationToken])
   @@index([resetPasswordToken])
+}
+
+// ─────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────
+
+enum NotificationType {
+  SYSTEM
+  SUBSCRIPTION
+  EXAM_REMINDER
+  VOCAB_REMINDER
+  STREAK_REMINDER
+  AI_COMPLETE
+}
+
+model Broadcast {
+  id         String           @id @default(uuid())
+  title      String
+  body       String
+  targetRole String           // "ALL" | "STANDARD" | "VIP"
+  sentBy     String
+  type       NotificationType @default(SYSTEM)
+  createdAt  DateTime         @default(now())
+
+  sender        User           @relation("BroadcastSender", fields: [sentBy], references: [id])
+  notifications Notification[]
+
+  @@index([createdAt])
+  @@index([sentBy])
+}
+
+model Notification {
+  id          String           @id @default(uuid())
+  userId      String
+  broadcastId String?
+  title       String
+  body        String
+  isRead      Boolean          @default(false)
+  type        NotificationType @default(SYSTEM)
+  isDeleted   Boolean          @default(false)
+  deletedAt   DateTime?
+  createdAt   DateTime         @default(now())
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  broadcast Broadcast? @relation(fields: [broadcastId], references: [id], onDelete: SetNull)
+
+  @@index([userId, isRead, isDeleted])
+  @@index([userId, createdAt])
 }
 
 model Role {
@@ -197,6 +248,7 @@ model Question {
   examId         String?
   passageGroupId String?
   grammarTopicId String?
+  part           ExamPart?
   order          Int        @default(0)
   questionText   String?
   difficulty     Difficulty @default(MEDIUM)
@@ -212,6 +264,7 @@ model Question {
   grammarTopic GrammarTopic? @relation(fields: [grammarTopicId], references: [id], onDelete: SetNull)
   options      Option[]
   resultDetails ResultDetail[]
+  notes         QuestionNote[]
 
   @@index([examId, order])
   @@index([grammarTopicId])
@@ -280,6 +333,8 @@ model Result {
   resultDetails ResultDetail[]
 
   @@index([userId, submittedAt])
+  @@index([userId, status])
+  @@index([userId, isFullTest, submittedAt])
   @@index([examId])
 }
 
@@ -313,4 +368,20 @@ model AdminLog {
   @@index([adminId])
   @@index([action, createdAt])
   @@index([targetType, targetId])
+}
+
+model QuestionNote {
+  id         String   @id @default(uuid())
+  userId     String
+  questionId String
+  content    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionId])
+  @@index([userId])
+  @@index([questionId])
 }

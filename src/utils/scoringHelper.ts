@@ -26,16 +26,20 @@ const READING_SCALED_SCORE: Record<number, number> = {
   91: 415, 92: 420, 93: 425, 94: 430, 95: 435, 96: 440, 97: 445, 98: 450, 99: 455, 100: 495
 };
 
-export const getScaledScore = (type: 'LISTENING' | 'READING', correctAnswers: number): number => {
+export const getScaledScore = (type: 'LISTENING' | 'READING', correctAnswers: number, totalQuestions: number): number => {
   const scoreMap = type === 'LISTENING' ? LISTENING_SCALED_SCORE : READING_SCALED_SCORE;
-  // Giới hạn max 100 câu
-  const safeCorrect = Math.min(Math.max(0, correctAnswers), 100);
+  // Quy đổi tỷ lệ: nếu đề chỉ có 5 câu listening mà đúng 3 → tỷ lệ 3/5 = 60% → quy ra 60/100
+  const scaledCorrect = totalQuestions > 0
+    ? Math.round((correctAnswers / totalQuestions) * 100)
+    : 0;
+  const safeCorrect = Math.min(Math.max(0, scaledCorrect), 100);
   return scoreMap[safeCorrect] || 5;
 };
 
-export const calculatePartialScore = (correctAnswers: number): number => {
-  // Điểm lẻ: mỗi câu đúng 5 điểm
-  return correctAnswers * 5;
+export const calculatePartialScore = (correctAnswers: number, totalQuestions: number): number => {
+  // Điểm theo tỷ lệ phần trăm, thang 100
+  if (totalQuestions === 0) return 0;
+  return Math.round((correctAnswers / totalQuestions) * 100);
 };
 
 export const scoringHelper = {

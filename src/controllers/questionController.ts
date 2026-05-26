@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { StatusCodes } from "http-status-codes";
 import { questionService } from "@/services/questionService";
+import { questionNoteService } from "@/services/questionNoteService";
 import {
   uploadToCloudinary,
   CloudinaryFolder,
@@ -264,6 +265,47 @@ const deleteQuestionGroup = async (req: Request, res: Response, next: NextFuncti
   }
 };
 
+/**
+ * GET /question/:id/note
+ * Lấy ghi chú của user cho 1 câu hỏi
+ */
+const getNote = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user!.id;
+    const questionId = req.params.id as string;
+    
+    const note = await questionNoteService.getNote(userId, questionId);
+    res.status(StatusCodes.OK).json({
+      statusCode: StatusCodes.OK,
+      message: "Lấy ghi chú thành công",
+      data: note,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /question/:id/note
+ * Tạo hoặc cập nhật ghi chú của user cho 1 câu hỏi
+ */
+const upsertNote = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user!.id;
+    const questionId = req.params.id as string;
+    const { content } = req.body;
+    
+    const note = await questionNoteService.upsertNote(userId, questionId, content);
+    res.status(StatusCodes.OK).json({
+      statusCode: StatusCodes.OK,
+      message: "Lưu ghi chú thành công",
+      data: note,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const questionController = {
   uploadMedia,
   createStandaloneQuestion,
@@ -276,4 +318,6 @@ export const questionController = {
   updatePassageGroup,
   deleteQuestion,
   deleteQuestionGroup,
+  getNote,
+  upsertNote
 };

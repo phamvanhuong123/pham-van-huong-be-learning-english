@@ -10,7 +10,7 @@ import { generateToken, verifyToken } from "@/utils/jwtTokenHelper";
 import bcrypt from "bcrypt";
 import { StatusCodes } from "http-status-codes";
 
-const login = async(data : LoginPayload) => {
+const login = async(data : LoginPayload, ipAddress?: string, userAgent?: string) => {
     const exsistUser = await prisma.user.findFirst({where : {
       email : data.email,
     }})
@@ -22,8 +22,6 @@ const login = async(data : LoginPayload) => {
     if(!isValidPassword)
       throw new ApiError("Email hoặc mật khẩu không hợp lệ",StatusCodes.BAD_REQUEST)
 
-    if(!exsistUser.emailVerified) 
-      throw new ApiError("Email chưa xác thực",StatusCodes.BAD_REQUEST)
     if(!exsistUser.emailVerified) 
       throw new ApiError("Email chưa xác thực",StatusCodes.BAD_REQUEST)
     if(exsistUser.isBanned)
@@ -40,7 +38,16 @@ const login = async(data : LoginPayload) => {
     const refreshToken = generateToken(userInfo,env.REFRESH_TOKEN_SECRET_SIGNATURE!,'1 day')
     const accessToken = generateToken(userInfo,env.ACCESS_TOKEN_SECRET_SIGNATURE!,'1h')
 
-    return {refreshToken,accessToken,userInfo}
+    const session = await prisma.userSession.create({
+      data: {
+        userId: exsistUser.id,
+        ipAddress,
+        deviceInfo: userAgent,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 1 day
+      }
+    });
+
+    return {refreshToken, accessToken, userInfo, sessionId: session.id}
 
   }
 
@@ -148,9 +155,76 @@ const refreshToken = async (token: string) => {
   }
 };
 
+const logout = async (sessionId?: string) => {
+  if (sessionId) {
+    await prisma.userSession.updateMany({
+      where: { id: sessionId },
+      data: { isActive: false }
+    });
+  }
+};
+
+const forgotPassword = async (email: string) => {
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user) {
+    // Return silently to prevent email enumeration
+    return;
+  }
+  
+  if (!user.emailVerified) {
+    throw new ApiError("Email chưa được xác thực", StatusCodes.BAD_REQUEST);
+  }
+
+  const { hashedToken, token } = generateRandomToken();
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      resetPasswordToken: hashedToken,
+      resetPasswordExpiry: new Date(Date.now() + 1 * 60 * 60 * 1000) // 1 hour
+    }
+  });
+
+  await emailService.sendPasswordResetEmail(user.email, user.name || "Bạn", token);
+};
+
+const resetPassword = async (token: string, newPassword: string) => {
+  const hashedToken = hashToken(token);
+  const user = await prisma.user.findFirst({
+    where: {
+      resetPasswordToken: hashedToken,
+      resetPasswordExpiry: { gt: new Date() }
+    }
+  });
+
+  if (!user) {
+    throw new ApiError("Token không hợp lệ hoặc đã hết hạn", StatusCodes.BAD_REQUEST);
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+
+  // Update password and revoke all sessions
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        resetPasswordToken: null,
+        resetPasswordExpiry: null
+      }
+    }),
+    prisma.userSession.updateMany({
+      where: { userId: user.id, isActive: true },
+      data: { isActive: false }
+    })
+  ]);
+};
+
 export const authService = {
   register,
   verifyEmail,
   login,
-  refreshToken
+  logout,
+  refreshToken,
+  forgotPassword,
+  resetPassword,
 };

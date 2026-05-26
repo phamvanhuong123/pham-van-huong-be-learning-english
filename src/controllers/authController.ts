@@ -9,7 +9,9 @@ import ms from 'ms';
 const login = async (req : Request, res :  Response,next : NextFunction) => {
   try{
     const loginPlayload : LoginPayload = req.body
-    const data = await authService.login(loginPlayload)
+    const ipAddress = req.ip;
+    const userAgent = req.headers['user-agent'];
+    const data = await authService.login(loginPlayload, ipAddress, userAgent)
     
     res.cookie("refreshToken",data.refreshToken, {
       httpOnly : true,
@@ -17,6 +19,12 @@ const login = async (req : Request, res :  Response,next : NextFunction) => {
       sameSite : 'none',
       maxAge : ms('1 day')
     })
+    res.cookie("sessionId", data.sessionId, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none',
+      maxAge: ms('1 day')
+    });
     res.status(StatusCodes.OK).json({
       user : data.userInfo,
       accessToken : data.accessToken
@@ -73,7 +81,15 @@ const refreshToken = async (req: Request, res: Response, next: NextFunction) => 
 
 const logout = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const sessionId = req.cookies?.sessionId;
+    await authService.logout(sessionId);
+
     res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none'
+    });
+    res.clearCookie("sessionId", {
       httpOnly: true,
       secure: true,
       sameSite: 'none'
@@ -84,10 +100,34 @@ const logout = async (req: Request, res: Response, next: NextFunction) => {
   }
 };
 
+const forgotPassword = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { email } = req.body;
+    await authService.forgotPassword(email);
+    res.status(StatusCodes.OK).json({
+      message: "Nếu email tồn tại trong hệ thống, chúng tôi đã gửi link đặt lại mật khẩu. Vui lòng kiểm tra hộp thư."
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const resetPassword = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { token, newPassword } = req.body;
+    await authService.resetPassword(token, newPassword);
+    res.status(StatusCodes.OK).json({ message: "Đặt lại mật khẩu thành công" });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const authController = {
   register,
   verifyEmail,
   login,
   refreshToken,
-  logout
+  logout,
+  forgotPassword,
+  resetPassword
 };

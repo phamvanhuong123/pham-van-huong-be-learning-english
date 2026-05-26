@@ -5,6 +5,8 @@ import exitHook from "exit-hook";
 import { errorHandler } from "@/middlewares/errorHandler";
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
+import { createServer } from 'http';
+import { initSocket } from '@/config/socket';
 const START_SERVER = () => {
   const port = 5000;
   const app = express();
@@ -12,13 +14,19 @@ const START_SERVER = () => {
   app.use(cookieParser())
   app.use(express.json())
   app.use('/api/v1', APIs_v1);
-  app.use(errorHandler)
-  app.listen(port, () => {
+  app.use(errorHandler);
+
+  const httpServer = createServer(app);
+  initSocket(httpServer);
+
+  httpServer.listen(port, () => {
     console.log(`Listen dev :http://localhost:${port}`);
   });
+
   exitHook(() => {
-    prisma.$disconnect().then(() => console.log("Đã ngắn kết nối database"))
-  })
+    httpServer.close();
+    prisma.$disconnect().then(() => console.log("Đã ngắn kết nối database"));
+  });
 };
 
 (async () => {

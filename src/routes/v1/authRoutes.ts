@@ -1,5 +1,6 @@
 import { authController } from "@/controllers/authController";
 import { authValidator } from "@/validators/authValidator";
+import { registerRateLimit } from "@/middlewares/registerRateLimit";
 import { Router } from "express";
 import { StatusCodes } from "http-status-codes";
 
@@ -17,8 +18,15 @@ route.delete('/logout', authController.logout)
 route.put('/refresh-token', authController.refreshToken)
 
 //register
-route.post('/register',authValidator.register,authController.register)
+route.post('/register', registerRateLimit, authValidator.register, authController.register)
+
 //verify-email
 route.get('/verify-email', authController.verifyEmail);
+
+//forgot-password
+route.post('/forgot-password', authValidator.forgotPassword, authController.forgotPassword);
+
+//reset-password
+route.post('/reset-password', authValidator.resetPassword, authController.resetPassword);
 
 export default route

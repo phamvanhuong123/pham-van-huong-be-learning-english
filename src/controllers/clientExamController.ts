@@ -32,8 +32,7 @@ export const clientExamController = {
   startExam: async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { id } = req.params as { id: string };
-      // Giả sử có auth middleware set req.user, tạm mock userId nếu chưa có
-      const userId = (req as any).user?.id || "86ee1cbf-2882-4f3f-aa6c-3229652e56b1";
+      const userId = req.user!.id;
 
       const result = await clientExamService.startExam(id, userId);
       res.status(StatusCodes.OK).json({ data: result });
@@ -45,7 +44,7 @@ export const clientExamController = {
   autoSaveExam: async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { id } = req.params as { id: string };
-      const userId = (req as any).user?.id || "86ee1cbf-2882-4f3f-aa6c-3229652e56b1";
+      const userId = req.user!.id;
       const { resultId, answers, timeTaken, tabSwitchCount } = req.body;
 
       if (!resultId || !answers) {
@@ -62,7 +61,7 @@ export const clientExamController = {
   submitExam: async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { id } = req.params as { id: string };
-      const userId = (req as any).user?.id || "86ee1cbf-2882-4f3f-aa6c-3229652e56b1";
+      const userId = req.user!.id;
       const { resultId, answers, timeTaken, tabSwitchCount } = req.body;
 
       if (!resultId || !answers) {

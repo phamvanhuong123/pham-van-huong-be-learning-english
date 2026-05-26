@@ -5,6 +5,8 @@ import examRoute from '@/routes/v1/examRoutes'
 import questionRoute from '@/routes/v1/questionRoutes'
 import clientExamRoute from '@/routes/v1/clientExamRoutes'
 
+import resultRoute from '@/routes/v1/resultRoutes'
+
 const route = Router()
 
 route.use('/auth', authRoute)
@@ -14,5 +16,7 @@ route.use('/exam', examRoute)
 route.use('/question', questionRoute)
 
 route.use('/client-exam', clientExamRoute)
+
+route.use('/results', resultRoute)
 
 export const APIs_v1 = route

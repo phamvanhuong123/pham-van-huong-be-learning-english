@@ -17,6 +17,7 @@ async function main() {
         { code: 'exam.create', group: 'exam', description: 'Tạo đề thi' },
         { code: 'exam.publish', group: 'exam', description: 'Publish/Unpublish đề thi' },
         { code: 'exam.delete', group: 'exam', description: 'Xóa đề thi' },
+        { code: 'exam.manage', group: 'exam', description: 'CRUD đề thi đầy đủ' },
         { code: 'exam.ai_generate', group: 'exam', description: 'AI tạo câu hỏi' },
         { code: 'question.manage', group: 'question', description: 'CRUD câu hỏi' },
         { code: 'subscription.approve', group: 'subscription', description: 'Duyệt Subscription' },
@@ -67,7 +68,7 @@ async function main() {
     const adminRole = await prisma.role.findUnique({ where: { name: 'ADMIN' } })
     const adminPermCodes = [
         'user.view', 'user.ban', 'user.manage',
-        'exam.create', 'exam.publish', 'exam.delete',
+        'exam.create', 'exam.publish', 'exam.delete', 'exam.manage',
         'question.manage', 'subscription.approve',
         'notification.broadcast', 'analytics.view_all', 'trash.restore',
     ]
@@ -82,7 +83,7 @@ async function main() {
 
     // Gán Permission cho TEACHER
     const teacherRole = await prisma.role.findUnique({ where: { name: 'TEACHER' } })
-    const teacherPermCodes = ['exam.create', 'exam.publish', 'question.manage', 'exam.ai_generate']
+    const teacherPermCodes = ['exam.create', 'exam.publish', 'exam.manage', 'question.manage', 'exam.ai_generate']
     const teacherPerms = await prisma.permission.findMany({ where: { code: { in: teacherPermCodes } } })
     for (const perm of teacherPerms) {
         await prisma.rolePermission.upsert({
