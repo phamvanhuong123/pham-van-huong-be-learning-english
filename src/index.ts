@@ -7,6 +7,7 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import { createServer } from 'http';
 import { initSocket } from '@/config/socket';
+import { initCronJobs } from '@/config/cron';
 const START_SERVER = () => {
   const port = 5000;
   const app = express();
@@ -18,6 +19,7 @@ const START_SERVER = () => {
 
   const httpServer = createServer(app);
   initSocket(httpServer);
+  initCronJobs();
 
   httpServer.listen(port, () => {
     console.log(`Listen dev :http://localhost:${port}`);
