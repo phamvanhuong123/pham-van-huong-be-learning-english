@@ -46,4 +46,29 @@ route.patch('/trash/:type/:id/restore', authorize('trash.restore'), adminTrashCo
 // Hard delete thường chỉ dành cho SuperAdmin, tạm dùng trash.manage nếu có, hoặc để authorize('system.manage')
 route.delete('/trash/:type/:id', authorize('trash.restore'), adminTrashController.hardDelete);
 
+// ─── System Vocab ──────────────────────────────────────────────
+import { adminVocabController } from '@/controllers/adminVocabController';
+import { uploadCsv } from '@/middlewares/uploadMiddleware';
+
+route.get('/vocab', authorize('system.manage'), adminVocabController.getSystemVocabs);
+route.post('/vocab', authorize('system.manage'), adminVocabController.createSystemVocab);
+route.post('/vocab/import', authorize('system.manage'), uploadCsv, adminVocabController.importCsv);
+route.put('/vocab/:id', authorize('system.manage'), adminVocabController.updateSystemVocab);
+route.delete('/vocab/:id', authorize('system.manage'), adminVocabController.deleteSystemVocab);
+
+// ─── Subscription ────────────────────────────────────────────────
+import { subscriptionController } from '@/controllers/subscriptionController';
+route.get('/subscriptions', authorize('system.manage'), subscriptionController.getAdminSubscriptionList);
+route.post('/subscriptions/:id/approve', authorize('system.manage'), subscriptionController.approveSubscription);
+route.post('/subscriptions/:id/reject', authorize('system.manage'), subscriptionController.rejectSubscription);
+route.post('/subscriptions/ban-account', authorize('system.manage'), subscriptionController.banBankAccount);
+
+// ─── Grammar ───────────────────────────────────────────────────
+import { grammarController } from '@/controllers/grammarController';
+route.get('/grammar', authorize('system.manage'), grammarController.getAdminTopics);
+route.post('/grammar', authorize('system.manage'), grammarController.createTopic);
+route.get('/grammar/:id', authorize('system.manage'), grammarController.getAdminTopicById);
+route.put('/grammar/:id', authorize('system.manage'), grammarController.updateTopic);
+route.delete('/grammar/:id', authorize('system.manage'), grammarController.deleteTopic);
+
 export default route;

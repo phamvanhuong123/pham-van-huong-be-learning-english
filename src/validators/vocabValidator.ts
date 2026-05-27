@@ -3,11 +3,11 @@ import { z } from 'zod';
 export const createVocabSchema = z.object({
   word: z.string().min(1, 'Từ vựng không được để trống').max(100).trim().toLowerCase(),
   meaning: z.string().min(1, 'Nghĩa không được để trống').max(500).trim(),
-  phonetic: z.string().max(100).optional().nullable(),
-  audioUrl: z.string().url('URL audio không hợp lệ').optional().nullable(),
-  example: z.string().max(1000).optional().nullable(),
-  toeicTopic: z.string().max(100).optional().nullable(),
-  collocations: z.string().max(500).optional().nullable(),
+  phonetic: z.string().max(100).optional().nullable().or(z.literal('')),
+  audioUrl: z.string().url('URL audio không hợp lệ').optional().nullable().or(z.literal('')),
+  example: z.string().max(1000).optional().nullable().or(z.literal('')),
+  toeicTopic: z.string().max(100).optional().nullable().or(z.literal('')),
+  collocations: z.string().max(500).optional().nullable().or(z.literal('')),
 });
 
 export const updateVocabSchema = createVocabSchema.partial();

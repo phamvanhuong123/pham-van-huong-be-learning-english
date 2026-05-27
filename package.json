@@ -18,6 +18,10 @@
     "cloudinary": "^2.10.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
+    "csv-parse": "^6.2.1",
+    "csv-stringify": "^6.7.0",
+    "date-fns": "^4.3.0",
+    "dayjs": "^1.11.21",
     "dotenv": "^17.4.2",
     "exit-hook": "^5.1.0",
     "express": "^5.2.1",
@@ -48,6 +52,7 @@
     "prisma": "^7.8.0",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.7"
   }
 }

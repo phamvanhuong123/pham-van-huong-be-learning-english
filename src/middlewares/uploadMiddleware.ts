@@ -8,6 +8,7 @@ const FILE_SIZE_LIMITS = {
   audio: 5 * 1024 * 1024,   // 5MB
   image: 2 * 1024 * 1024,   // 2MB
   video: 20 * 1024 * 1024,  // 20MB
+  csv: 5 * 1024 * 1024,     // 5MB
 };
 
 // ─── MIME types hợp lệ ────────────────────────────────────────────
@@ -15,6 +16,7 @@ const ALLOWED_MIME: Record<string, string[]> = {
   audio: ["audio/mpeg", "audio/mp3", "audio/wav", "audio/ogg", "audio/m4a", "audio/aac"],
   image: ["image/jpeg", "image/png", "image/webp"],
   video: ["video/mp4", "video/webm", "video/quicktime"],
+  csv: ["text/csv", "application/vnd.ms-excel"],
 };
 
 // ─── Lưu file vào RAM (không ghi disk) ───────────────────────────
@@ -63,7 +65,7 @@ export const validateFileSize = (req: Request): void => {
   const files = req.files as Record<string, Express.Multer.File[]>;
 
   for (const fieldName of Object.keys(files)) {
-    const key = fieldName as "audio" | "image" | "video";
+    const key = fieldName as "audio" | "image" | "video" | "csv";
     const limit = FILE_SIZE_LIMITS[key];
     const file = files[key]?.[0];
 
@@ -76,3 +78,25 @@ export const validateFileSize = (req: Request): void => {
     }
   }
 };
+
+// ─── Middleware upload CSV ─────────────────────────────────────────
+const csvFileFilter = (req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
+  const allowed = ALLOWED_MIME.csv;
+  if (!allowed.includes(file.mimetype)) {
+    return cb(
+      new ApiError(
+        `File '${file.originalname}' không đúng định dạng CSV/Excel.`,
+        StatusCodes.UNPROCESSABLE_ENTITY
+      )
+    );
+  }
+  cb(null, true);
+};
+
+export const uploadCsv = multer({
+  storage,
+  fileFilter: csvFileFilter,
+  limits: {
+    fileSize: FILE_SIZE_LIMITS.csv,
+  },
+}).single("file");

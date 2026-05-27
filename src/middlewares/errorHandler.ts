@@ -11,9 +11,18 @@ export const errorHandler = (err: any, req: Request, res: Response, next: NextFu
   if (err.name === 'PrismaClientKnownRequestError') {
     // Return friendly message instead of stack trace
     res.status(StatusCodes.BAD_REQUEST).json({
-
       message: 'Database error occurred. Please check your request data.',
       code: err.code
+    });
+    return;
+  }
+
+  // Zod Validation Error Handling
+  if (err.name === 'ZodError') {
+    res.status(StatusCodes.BAD_REQUEST).json({
+      statusCode: StatusCodes.BAD_REQUEST,
+      message: 'Validation failed',
+      errors: err.errors
     });
     return;
   }

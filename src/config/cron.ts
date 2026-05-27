@@ -44,5 +44,23 @@ export const initCronJobs = () => {
     }
   });
 
+  // Check subscription expiry at 0:00 AM every day
+  cron.schedule('0 0 * * *', async () => {
+    const { checkSubscriptionExpiry } = await import('@/jobs/subscriptionExpiryJob');
+    await checkSubscriptionExpiry();
+  });
+
+  // Cleanup abandoned study sessions at 3:00 AM every day
+  cron.schedule('0 3 * * *', async () => {
+    const { cleanupAbandonedSessions } = await import('@/jobs/cleanupJob');
+    await cleanupAbandonedSessions();
+  });
+
+  // Send vocab review reminders at 8:00 AM every day
+  cron.schedule('0 8 * * *', async () => {
+    const { sendVocabReviewReminders } = await import('@/jobs/vocabReminderJob');
+    await sendVocabReviewReminders();
+  });
+
   console.log('Đã khởi tạo các Cron Jobs.');
 };

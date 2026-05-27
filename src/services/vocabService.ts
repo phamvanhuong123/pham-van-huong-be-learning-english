@@ -50,7 +50,7 @@ export const vocabService = {
     return vocab;
   },
 
-  createVocab: async (userId: string, data: any) => {
+  createVocab: async (userId: string, data: any, audioFile?: Express.Multer.File) => {
     // Check duplicate
     const existing = await prisma.vocab.findUnique({
       where: {
@@ -61,10 +61,22 @@ export const vocabService = {
       throw new ApiError(`Từ "${data.word}" đã tồn tại trong thư viện của bạn`, StatusCodes.CONFLICT);
     }
 
+    let finalAudioUrl = data.audioUrl;
+    
+    if (audioFile) {
+      const { uploadToCloudinary } = await import('@/config/cloudinary');
+      const uploadResult = await uploadToCloudinary(audioFile.buffer, 'toeic/audio', 'video');
+      finalAudioUrl = uploadResult.url;
+    } else if (!finalAudioUrl) {
+      // Auto TTS if no URL provided
+      finalAudioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=en&client=tw-ob&q=${encodeURIComponent(data.word)}`;
+    }
+
     // Create vocab and schedule in transaction
     const vocab = await prisma.vocab.create({
       data: {
         ...data,
+        audioUrl: finalAudioUrl,
         userId,
         schedule: {
           create: {} // defaults from schema
@@ -76,7 +88,7 @@ export const vocabService = {
     return vocab;
   },
 
-  updateVocab: async (vocabId: string, userId: string, data: any) => {
+  updateVocab: async (vocabId: string, userId: string, data: any, audioFile?: Express.Multer.File) => {
     const vocab = await prisma.vocab.findUnique({ where: { id: vocabId } });
     if (!vocab || vocab.userId !== userId) {
       throw new ApiError('Từ vựng không tồn tại hoặc không có quyền truy cập', StatusCodes.NOT_FOUND);
@@ -93,9 +105,24 @@ export const vocabService = {
       }
     }
 
+    let finalAudioUrl = data.audioUrl !== undefined ? data.audioUrl : vocab.audioUrl;
+    
+    if (audioFile) {
+      const { uploadToCloudinary } = await import('@/config/cloudinary');
+      const uploadResult = await uploadToCloudinary(audioFile.buffer, 'toeic/audio', 'video');
+      finalAudioUrl = uploadResult.url;
+    } else if (data.audioUrl === '' && data.word) {
+      // If user explicitly cleared the audio URL, regenerate TTS based on the new or old word
+      const wordToSpeak = data.word || vocab.word;
+      finalAudioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=en&client=tw-ob&q=${encodeURIComponent(wordToSpeak)}`;
+    }
+
     return await prisma.vocab.update({
       where: { id: vocabId },
-      data,
+      data: {
+        ...data,
+        audioUrl: finalAudioUrl
+      },
       include: { schedule: true }
     });
   },
@@ -104,6 +131,11 @@ export const vocabService = {
     const vocab = await prisma.vocab.findUnique({ where: { id: vocabId } });
     if (!vocab || vocab.userId !== userId) {
       throw new ApiError('Từ vựng không tồn tại hoặc không có quyền truy cập', StatusCodes.NOT_FOUND);
+    }
+    
+    if (vocab.audioUrl?.includes('res.cloudinary.com')) {
+      const { deleteMediaByUrl } = await import('@/config/cloudinary');
+      await deleteMediaByUrl(vocab.audioUrl, 'AUDIO');
     }
 
     await prisma.vocab.delete({
