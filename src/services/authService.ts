@@ -46,6 +46,8 @@ const login = async (data: LoginPayload, ipAddress?: string, userAgent?: string)
     throw new ApiError("Email chưa xác thực", StatusCodes.BAD_REQUEST)
   if (exsistUser.isBanned)
     throw new ApiError("Tài khoản của bạn đã bị khoá", StatusCodes.BAD_REQUEST)
+  if (exsistUser.isDeleted)
+    throw new ApiError("Tài khoản này đã bị xóa", StatusCodes.BAD_REQUEST)
 
   const permissions = exsistUser.userRoles.flatMap(ur =>
     ur.role.rolePermissions.map(rp => rp.permission.code)

@@ -24,6 +24,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
         id: true,
         email: true,
         isBanned: true,
+        isDeleted: true,
         isSuperAdmin: true,
         userRoles: {
           where: {
@@ -47,6 +48,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
 
     if (!user) throw new ApiError('Người dùng không tồn tại', StatusCodes.UNAUTHORIZED);
     if (user.isBanned) throw new ApiError('Tài khoản đã bị khóa', StatusCodes.FORBIDDEN);
+    if (user.isDeleted) throw new ApiError('Tài khoản đã bị xóa', StatusCodes.FORBIDDEN);
 
     // 4. Flatten permissions
     const permissions = user.userRoles.flatMap(ur =>

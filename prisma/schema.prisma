@@ -20,6 +20,8 @@ model User {
   examDate            DateTime?
   emailVerified       Boolean   @default(false)
   isBanned            Boolean   @default(false)
+  isDeleted           Boolean   @default(false)
+  deletedAt           DateTime?
   isSuperAdmin        Boolean   @default(false)
   vipExpiresAt        DateTime?
   phoneNumber         String?   @unique

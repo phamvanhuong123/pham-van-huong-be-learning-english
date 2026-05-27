@@ -9,6 +9,8 @@ import adminRoute from '@/routes/v1/adminRoutes'
 import vocabRoute from '@/routes/v1/vocabRoutes'
 import subscriptionRoute from '@/routes/v1/subscriptionRoutes'
 import notificationRoute from '@/routes/v1/notificationRoutes'
+import profileRoute from '@/routes/v1/profileRoutes'
+import sessionRoute from '@/routes/v1/sessionRoutes'
 
 const route = Router()
 
@@ -24,5 +26,7 @@ route.use('/vocab', vocabRoute)
 route.use('/subscription', subscriptionRoute)
 route.use('/grammar', grammarRoute)
 route.use('/notifications', notificationRoute)
+route.use('/profile', profileRoute)
+route.use('/sessions', sessionRoute)
 
 export const APIs_v1 = route

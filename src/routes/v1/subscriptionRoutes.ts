@@ -7,8 +7,6 @@ const router = Router();
 
 router.use(authenticate);
 
-// Dùng chung middleware uploadSingleMedia cho trường image (proofUrl)
-// Vì uploadSingleMedia support field 'image'
 router.post('/', uploadSingleMedia, subscriptionController.createSubscription);
 router.get('/mine', subscriptionController.getMySubscriptions);
 

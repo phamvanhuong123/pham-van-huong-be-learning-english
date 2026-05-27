@@ -79,6 +79,26 @@ export const validateFileSize = (req: Request): void => {
   }
 };
 
+// ─── Middleware upload Avatar ─────────────────────────────────────────
+const avatarFileFilter = (req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
+  const allowed = ALLOWED_MIME.image;
+  if (!allowed.includes(file.mimetype)) {
+    return cb(
+      new ApiError(
+        `File '${file.originalname}' không đúng định dạng. Chấp nhận: ${allowed.join(", ")}`,
+        StatusCodes.UNPROCESSABLE_ENTITY
+      )
+    );
+  }
+  cb(null, true);
+};
+
+export const uploadAvatar = multer({
+  storage,
+  fileFilter: avatarFileFilter,
+  limits: { fileSize: FILE_SIZE_LIMITS.image },
+}).single("avatar");
+
 // ─── Middleware upload CSV ─────────────────────────────────────────
 const csvFileFilter = (req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
   const allowed = ALLOWED_MIME.csv;
