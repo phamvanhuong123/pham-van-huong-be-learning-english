@@ -530,4 +530,5 @@ enum SubscriptionStatus {
   PENDING
   APPROVED
   REJECTED
+  REVOKED
 }

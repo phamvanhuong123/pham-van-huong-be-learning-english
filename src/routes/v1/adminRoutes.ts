@@ -61,7 +61,13 @@ import { subscriptionController } from '@/controllers/subscriptionController';
 route.get('/subscriptions', authorize('system.manage'), subscriptionController.getAdminSubscriptionList);
 route.post('/subscriptions/:id/approve', authorize('system.manage'), subscriptionController.approveSubscription);
 route.post('/subscriptions/:id/reject', authorize('system.manage'), subscriptionController.rejectSubscription);
-route.post('/subscriptions/ban-account', authorize('system.manage'), subscriptionController.banBankAccount);
+route.put('/subscriptions/:id', authorize('system.manage'), subscriptionController.editPendingSubscription);
+route.post('/subscriptions/:id/revoke', authorize('system.manage'), subscriptionController.revokeSubscription);
+route.delete('/subscriptions/:id', authorize('system.manage'), subscriptionController.deleteSubscription);
+
+route.get('/subscriptions/banned-accounts', authorize('system.manage'), subscriptionController.getBannedBankAccounts);
+route.post('/subscriptions/banned-accounts', authorize('system.manage'), subscriptionController.banBankAccount);
+route.delete('/subscriptions/banned-accounts/:id', authorize('system.manage'), subscriptionController.unbanBankAccount);
 
 // ─── Grammar ───────────────────────────────────────────────────
 import { grammarController } from '@/controllers/grammarController';

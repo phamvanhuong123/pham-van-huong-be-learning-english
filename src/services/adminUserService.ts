@@ -5,6 +5,7 @@ import { createAdminLog } from '@/utils/adminLogHelper';
 import bcrypt from 'bcrypt';
 import { emailService } from '@/services/emailService';
 import { generateRandomToken } from '@/utils/generateRandom';
+import { emitToUser } from '@/config/socket';
 
 export const adminUserService = {
   getUsers: async (query: any) => {
@@ -110,6 +111,10 @@ export const adminUserService = {
       });
     });
 
+    if (isBanned) {
+      emitToUser(id, 'account_banned', { reason });
+    }
+
     return { success: true };
   },
 
@@ -137,6 +142,8 @@ export const adminUserService = {
         detail: { newRole: roleName }
       });
     });
+
+    emitToUser(id, 'session_kicked', {});
 
     return { success: true };
   },
@@ -172,6 +179,8 @@ export const adminUserService = {
     // Send email
     await emailService.sendPasswordResetEmail(user.email, user.name || "Bạn", token);
 
+    emitToUser(id, 'session_kicked', {});
+
     return { success: true };
   },
 
@@ -190,6 +199,8 @@ export const adminUserService = {
         detail: { kickedCount: count }
       });
     });
+
+    emitToUser(id, 'session_kicked', {});
 
     return { success: true };
   }

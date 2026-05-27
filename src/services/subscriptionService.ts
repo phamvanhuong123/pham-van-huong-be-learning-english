@@ -6,24 +6,34 @@ import { hashHelper } from '@/utils/hashHelper';
 import { subscriptionRiskService } from './subscriptionRiskService';
 import { createAdminLog } from '@/utils/adminLogHelper';
 import { notificationService } from './notificationService';
+import { emitToUser } from '@/config/socket';
 
 export const subscriptionService = {
   createSubscription: async (userId: string, data: any, fileBuffer: Buffer) => {
+    if (data.bankAccountNo) {
+      const isBanned = await prisma.bannedBankAccount.findUnique({
+        where: { bankAccountNo: data.bankAccountNo }
+      });
+      if (isBanned) {
+        throw new ApiError('Số tài khoản này đã bị khóa do vi phạm', StatusCodes.FORBIDDEN);
+      }
+    }
+
     // 1. Calculate proofHash
     const proofHash = hashHelper.sha256(fileBuffer);
 
     // 2. Calculate risk score
     const risk = await subscriptionRiskService.calculateRiskScore(
-      userId, 
-      proofHash, 
-      data.bankAccountNo, 
+      userId,
+      proofHash,
+      data.bankAccountNo,
       data.ipAddress
     );
 
     // 3. Upload image to Cloudinary
     // @ts-ignore
     const uploadResult = await uploadToCloudinary(fileBuffer, 'toeic/images', 'image');
-    
+
     // 4. Create record
     const subscription = await prisma.subscription.create({
       data: {
@@ -111,7 +121,7 @@ export const subscriptionService = {
     // If user is already VIP, extend from current expiry. Else from now.
     const currentExpiry = subscription.user.vipExpiresAt;
     const startsAt = (currentExpiry && currentExpiry > now) ? currentExpiry : now;
-    
+
     const expiresAt = new Date(startsAt);
     expiresAt.setMonth(expiresAt.getMonth() + months);
 
@@ -152,6 +162,9 @@ export const subscriptionService = {
       `Gói ${subscription.plan} của bạn đã được duyệt. Hạn sử dụng mới: ${expiresAt.toLocaleDateString('vi-VN')}`,
       'SUBSCRIPTION'
     );
+
+    // Cập nhật trạng thái VIP trực tiếp qua socket để Frontend cập nhật store
+    emitToUser(subscription.userId, 'vip_status_updated', { isVip: true });
 
     return updated;
   },
@@ -224,5 +237,123 @@ export const subscriptionService = {
     });
 
     return banned;
+  },
+
+  editPendingSubscription: async (adminId: string, subscriptionId: string, data: { plan: string, amount: number }, ipAddress?: string) => {
+    const subscription = await prisma.subscription.findUnique({ where: { id: subscriptionId } });
+    if (!subscription) throw new ApiError('Không tìm thấy yêu cầu', StatusCodes.NOT_FOUND);
+    if (subscription.status !== 'PENDING') throw new ApiError('Chỉ có thể sửa yêu cầu ở trạng thái PENDING', StatusCodes.BAD_REQUEST);
+
+    const updated = await prisma.subscription.update({
+      where: { id: subscriptionId },
+      data: { plan: data.plan, amount: data.amount }
+    });
+
+    await createAdminLog(prisma, {
+      adminId,
+      action: 'subscription.edit',
+      targetType: 'Subscription',
+      targetId: subscriptionId,
+      detail: { oldPlan: subscription.plan, newPlan: data.plan, oldAmount: subscription.amount, newAmount: data.amount },
+      ipAddress
+    });
+
+    return updated;
+  },
+
+  revokeSubscription: async (adminId: string, subscriptionId: string, reason: string, ipAddress?: string) => {
+    const subscription = await prisma.subscription.findUnique({
+      where: { id: subscriptionId },
+      include: { user: true }
+    });
+    if (!subscription) throw new ApiError('Không tìm thấy yêu cầu', StatusCodes.NOT_FOUND);
+    if (subscription.status !== 'APPROVED') throw new ApiError('Chỉ có thể thu hồi yêu cầu đã APPROVED', StatusCodes.BAD_REQUEST);
+
+    let months = 1;
+    if (subscription.plan === 'VIP_3_MONTH') months = 3;
+    if (subscription.plan === 'VIP_6_MONTH') months = 6;
+    const daysToSubtract = months * 30;
+
+    const currentExpiry = subscription.user.vipExpiresAt;
+    let newExpiry: Date | null = null;
+    if (currentExpiry) {
+      newExpiry = new Date(currentExpiry);
+      newExpiry.setDate(newExpiry.getDate() - daysToSubtract);
+      if (newExpiry < new Date()) newExpiry = null;
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const sub = await tx.subscription.update({
+        where: { id: subscriptionId },
+        data: {
+          status: 'REVOKED',
+          rejectedBy: adminId,
+          rejectedAt: new Date(),
+          rejectionReason: reason
+        }
+      });
+      await tx.user.update({
+        where: { id: subscription.userId },
+        data: { vipExpiresAt: newExpiry }
+      });
+      return sub;
+    });
+
+    await createAdminLog(prisma, {
+      adminId,
+      action: 'subscription.revoke',
+      targetType: 'Subscription',
+      targetId: subscriptionId,
+      detail: { reason, daysToSubtract },
+      ipAddress
+    });
+
+    emitToUser(subscription.userId, 'session_kicked', {});
+
+    return updated;
+  },
+
+  deleteSubscription: async (adminId: string, subscriptionId: string, ipAddress?: string) => {
+    const subscription = await prisma.subscription.findUnique({ where: { id: subscriptionId } });
+    if (!subscription) throw new ApiError('Không tìm thấy yêu cầu', StatusCodes.NOT_FOUND);
+    if (subscription.status === 'APPROVED') throw new ApiError('Không thể xóa yêu cầu đã APPROVED', StatusCodes.BAD_REQUEST);
+
+    await prisma.subscription.delete({ where: { id: subscriptionId } });
+
+    await createAdminLog(prisma, {
+      adminId,
+      action: 'subscription.delete',
+      targetType: 'Subscription',
+      targetId: subscriptionId,
+      detail: { deletedPlan: subscription.plan },
+      ipAddress
+    });
+
+    return { success: true };
+  },
+
+  getBannedBankAccounts: async () => {
+    return prisma.bannedBankAccount.findMany({
+      include: { admin: { select: { name: true, email: true } } },
+      orderBy: { bannedAt: 'desc' }
+    });
+  },
+
+  unbanBankAccount: async (adminId: string, id: string, ipAddress?: string) => {
+    const banned = await prisma.bannedBankAccount.findUnique({ where: { id } });
+    if (!banned) throw new ApiError('Không tìm thấy tài khoản', StatusCodes.NOT_FOUND);
+
+    await prisma.bannedBankAccount.delete({ where: { id } });
+
+    await createAdminLog(prisma, {
+      adminId,
+      action: 'subscription.unban_account',
+      targetType: 'BannedBankAccount',
+      targetId: id,
+      detail: { bankAccountNo: banned.bankAccountNo },
+      ipAddress
+    });
+
+    return { success: true };
   }
 };

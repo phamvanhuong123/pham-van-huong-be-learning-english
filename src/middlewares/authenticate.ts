@@ -17,7 +17,18 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     // 2. Verify JWT
     const decoded = verifyToken(token, env.ACCESS_TOKEN_SECRET_SIGNATURE!) as any;
 
-    // 3. Query DB — check isBanned + load permissions
+    // 3. Verify Session from cookies
+    const sessionId = req.cookies?.sessionId;
+    if (sessionId) {
+      const activeSession = await prisma.userSession.findUnique({
+        where: { id: sessionId }
+      });
+      if (!activeSession || !activeSession.isActive) {
+        throw new ApiError('Phiên đăng nhập đã hết hạn hoặc bị đăng xuất từ nơi khác', StatusCodes.UNAUTHORIZED);
+      }
+    }
+
+    // 4. Query DB — check isBanned + load permissions
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
       select: {
@@ -50,12 +61,12 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     if (user.isBanned) throw new ApiError('Tài khoản đã bị khóa', StatusCodes.FORBIDDEN);
     if (user.isDeleted) throw new ApiError('Tài khoản đã bị xóa', StatusCodes.FORBIDDEN);
 
-    // 4. Flatten permissions
+    // 5. Flatten permissions
     const permissions = user.userRoles.flatMap(ur =>
       ur.role.rolePermissions.map(rp => rp.permission.code)
     );
 
-    // 5. Attach req.user
+    // 6. Attach req.user
     req.user = {
       id: user.id,
       email: user.email,
@@ -63,11 +74,13 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       permissions
     };
 
-    // 6. Update lastActiveAt async (không block request)
-    prisma.userSession.updateMany({
-      where: { userId: user.id, isActive: true },
-      data: { lastActiveAt: new Date() }
-    }).catch(() => {}); // ignore error, non-critical
+    // 7. Update lastActiveAt async (không block request)
+    if (sessionId) {
+      prisma.userSession.update({
+        where: { id: sessionId },
+        data: { lastActiveAt: new Date() }
+      }).catch(() => {}); // ignore error, non-critical
+    }
 
     next();
   } catch (error: any) {

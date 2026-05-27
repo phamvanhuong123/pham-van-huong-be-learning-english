@@ -76,5 +76,62 @@ export const subscriptionController = {
     } catch (error) {
       next(error);
     }
+  },
+
+  editPendingSubscription: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { plan, amount } = req.body;
+      if (!plan || amount === undefined) {
+        throw new ApiError('plan và amount là bắt buộc', StatusCodes.BAD_REQUEST);
+      }
+      const ipAddress = req.ip || req.socket.remoteAddress;
+      const updated = await subscriptionService.editPendingSubscription(req.user!.id, req.params.id as string, { plan, amount }, ipAddress);
+      res.status(StatusCodes.OK).json({ data: updated, message: 'Đã cập nhật yêu cầu nâng cấp' });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  revokeSubscription: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { reason } = req.body;
+      if (!reason) {
+        throw new ApiError('Lý do thu hồi là bắt buộc', StatusCodes.BAD_REQUEST);
+      }
+      const ipAddress = req.ip || req.socket.remoteAddress;
+      const updated = await subscriptionService.revokeSubscription(req.user!.id, req.params.id as string, reason, ipAddress);
+      res.status(StatusCodes.OK).json({ data: updated, message: 'Đã thu hồi gói VIP' });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  deleteSubscription: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const ipAddress = req.ip || req.socket.remoteAddress;
+      await subscriptionService.deleteSubscription(req.user!.id, req.params.id as string, ipAddress);
+      res.status(StatusCodes.OK).json({ message: 'Đã xóa yêu cầu nâng cấp' });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  getBannedBankAccounts: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await subscriptionService.getBannedBankAccounts();
+      res.status(StatusCodes.OK).json({ data: result });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  unbanBankAccount: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const ipAddress = req.ip || req.socket.remoteAddress;
+      await subscriptionService.unbanBankAccount(req.user!.id, req.params.id as string, ipAddress);
+      res.status(StatusCodes.OK).json({ message: 'Đã gỡ chặn tài khoản ngân hàng' });
+    } catch (error) {
+      next(error);
+    }
   }
 };
