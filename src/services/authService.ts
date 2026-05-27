@@ -11,9 +11,29 @@ import bcrypt from "bcrypt";
 import { StatusCodes } from "http-status-codes";
 
 const login = async(data : LoginPayload, ipAddress?: string, userAgent?: string) => {
-    const exsistUser = await prisma.user.findFirst({where : {
-      email : data.email,
-    }})
+    const exsistUser = await prisma.user.findFirst({
+      where: {
+        email: data.email,
+      },
+      include: {
+        userRoles: {
+          where: {
+            OR: [
+              { expiresAt: null },
+              { expiresAt: { gt: new Date() } }
+            ]
+          },
+          include: {
+            role: {
+              include: {
+                rolePermissions: { include: { permission: true } }
+              }
+            }
+          }
+        }
+      }
+    });
+
     if(!exsistUser)
       throw new ApiError("Email hoặc mật khẩu không hợp lệ",StatusCodes.BAD_REQUEST)
     
@@ -27,12 +47,18 @@ const login = async(data : LoginPayload, ipAddress?: string, userAgent?: string)
     if(exsistUser.isBanned)
       throw new ApiError("Tài khoản của bạn đã bị khoá",StatusCodes.BAD_REQUEST)
 
+    const permissions = exsistUser.userRoles.flatMap(ur =>
+      ur.role.rolePermissions.map(rp => rp.permission.code)
+    );
+
     const userInfo = {
       email : exsistUser.email,
       name : exsistUser.name,
       avatarUrl : exsistUser.avatarUrl,
       id : exsistUser.id,
-      role : exsistUser.isSuperAdmin ? "superAdmin" : "user"
+      role : exsistUser.isSuperAdmin ? "superAdmin" : "user",
+      isSuperAdmin: exsistUser.isSuperAdmin,
+      permissions
     }
 
     const refreshToken = generateToken(userInfo,env.REFRESH_TOKEN_SECRET_SIGNATURE!,'1 day')
@@ -146,7 +172,9 @@ const refreshToken = async (token: string) => {
       name: decoded.name,
       avatarUrl: decoded.avatarUrl,
       id: decoded.id,
-      role: decoded.role
+      role: decoded.role,
+      isSuperAdmin: decoded.isSuperAdmin,
+      permissions: decoded.permissions || []
     };
     const newAccessToken = generateToken(userInfo, env.ACCESS_TOKEN_SECRET_SIGNATURE!, '1h');
     return newAccessToken;

@@ -68,7 +68,13 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     }).catch(() => {}); // ignore error, non-critical
 
     next();
-  } catch (error) {
-    next(error);
+  } catch (error: any) {
+    if (error.name === 'TokenExpiredError') {
+      next(new ApiError('Token đã hết hạn', StatusCodes.GONE));
+    } else if (error.name === 'JsonWebTokenError') {
+      next(new ApiError('Token không hợp lệ', StatusCodes.UNAUTHORIZED));
+    } else {
+      next(error);
+    }
   }
 };

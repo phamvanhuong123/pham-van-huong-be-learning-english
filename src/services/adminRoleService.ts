@@ -79,25 +79,15 @@ export const adminRoleService = {
   },
 
   getPermissions: async () => {
-    const permissions = await prisma.permission.findMany();
-    
-    // Group permissions by 'group' field
-    const grouped = permissions.reduce((acc: any, perm) => {
-      const groupName = perm.group || 'other';
-      if (!acc[groupName]) acc[groupName] = [];
-      acc[groupName].push(perm);
-      return acc;
-    }, {});
-
-    return grouped;
+    return prisma.permission.findMany();
   },
 
   getRolePermissions: async (roleId: string) => {
     const rp = await prisma.rolePermission.findMany({
       where: { roleId },
-      select: { permission: true }
+      select: { permissionId: true }
     });
-    return rp.map(item => item.permission);
+    return rp.map(item => item.permissionId);
   },
 
   updateRolePermissions: async (adminId: string, roleId: string, permissionIds: string[]) => {

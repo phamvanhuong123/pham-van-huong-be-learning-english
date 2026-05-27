@@ -3,9 +3,9 @@ import { ExamCreatePayload, ExamUpdatePayload } from "@/types/exam.types"
 import ApiError from "@/utils/ApiError"
 import { EXAM_SELECT_FIELDS } from "@/utils/contanst"
 import { StatusCodes } from "http-status-codes"
+import { createAdminLog } from '@/utils/adminLogHelper';
 
-
-const createExam = async (data: ExamCreatePayload) => {
+const createExam = async (adminId: string, data: ExamCreatePayload) => {
   return await prisma.$transaction(async (tx) => {
     // Tạo đề
     const exam = await tx.exam.create({
@@ -42,6 +42,15 @@ const createExam = async (data: ExamCreatePayload) => {
         throw new ApiError("Danh sách đề con chứa mã không hợp lệ (không tồn tại, đã có đề cha hoặc thuộc loại đề FULL).", StatusCodes.BAD_REQUEST)
       }
     }
+
+    await createAdminLog(tx, {
+      adminId,
+      action: 'exam.create',
+      targetType: 'Exam',
+      targetId: exam.id,
+      detail: { title: exam.title, part: exam.part }
+    });
+
     return exam
   })
 }
@@ -55,7 +64,7 @@ const getListExam = async () => {
     select: EXAM_SELECT_FIELDS
   })
 }
-const deleteExam = async (id: string) => {
+const deleteExam = async (adminId: string, id: string) => {
   const exam = await prisma.exam.findFirst({
     where: {
       id: id,
@@ -89,15 +98,24 @@ const deleteExam = async (id: string) => {
         parentExamId: null
       }
     })
+
+    await createAdminLog(tx, {
+      adminId,
+      action: 'exam.delete',
+      targetType: 'Exam',
+      targetId: id,
+      detail: { title: exam.title }
+    });
+
     return updateCount
   })
 
 }
 
-const updateExam = async (id: string, data: ExamUpdatePayload) => {
+const updateExam = async (adminId: string, id: string, data: ExamUpdatePayload) => {
   const existExam = await prisma.exam.findFirst({
     where: { id, isDeleted: false },
-    select: { id: true, part: true }
+    select: { id: true, part: true, title: true }
   })
   if (!existExam) throw new ApiError("Không tìm thấy bài kiểm tra", StatusCodes.NOT_FOUND)
 
@@ -128,6 +146,14 @@ const updateExam = async (id: string, data: ExamUpdatePayload) => {
         throw new ApiError("Danh sách đề con không hợp lệ.", StatusCodes.BAD_REQUEST)
       }
     }
+
+    await createAdminLog(tx, {
+      adminId,
+      action: 'exam.update',
+      targetType: 'Exam',
+      targetId: id,
+      detail: { oldTitle: existExam.title, newTitle: updatedExam.title }
+    });
 
     return updatedExam
   })
