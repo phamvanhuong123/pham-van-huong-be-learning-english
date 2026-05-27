@@ -31,11 +31,16 @@ export const errorHandler = (err: any, req: Request, res: Response, next: NextFu
   if (!err.statusCode) err.statusCode = StatusCodes.INTERNAL_SERVER_ERROR
 
   const responseError = {
-    statusCode : err.statusCode,
+    statusCode: err.statusCode,
     message: err.message || StatusCodes[err.statusCode],
-    stack :err.stack
+    stack: err.stack
   }
-  if(env.BUILD_MODE !== 'dev') delete responseError.stack
+  if (env.BUILD_MODE !== 'dev') delete responseError.stack
+
+  // Vô hiệu hóa cache cho tất cả các response lỗi
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
 
   res.status(err.statusCode).json(responseError);
 };

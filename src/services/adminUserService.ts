@@ -27,7 +27,7 @@ export const adminUserService = {
       where.isBanned = false;
     }
 
-    if (query.role) {
+    if (query.role && query.role !== 'ALL') {
       where.userRoles = { some: { role: { name: query.role } } };
     }
 

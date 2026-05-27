@@ -9,12 +9,21 @@ export const adminNotificationService = {
       users = await prisma.user.findMany({ where: { isBanned: false }, select: { id: true } });
     } else if (data.targetRole === 'STANDARD') {
       users = await prisma.user.findMany({
-        where: { isBanned: false, userRoles: { some: { role: { name: 'STANDARD' } } } },
+        where: { 
+          isBanned: false, 
+          OR: [
+            { vipExpiresAt: null },
+            { vipExpiresAt: { lt: new Date() } }
+          ]
+        },
         select: { id: true }
       });
     } else if (data.targetRole === 'VIP') {
       users = await prisma.user.findMany({
-        where: { isBanned: false, vipExpiresAt: { gt: new Date() } },
+        where: { 
+          isBanned: false, 
+          vipExpiresAt: { gt: new Date() } 
+        },
         select: { id: true }
       });
     }

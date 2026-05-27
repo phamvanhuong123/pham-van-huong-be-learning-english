@@ -181,6 +181,28 @@ export const clientExamService = {
 
   // Bắt đầu làm bài
   startExam: async (examId: string, userId: string) => {
+    // Lấy thông tin đề thi và user
+    const [exam, user] = await Promise.all([
+      prisma.exam.findUnique({ where: { id: examId } }),
+      prisma.user.findUnique({ where: { id: userId } })
+    ]);
+
+    if (!exam) {
+      throw new ApiError("Không tìm thấy đề thi", StatusCodes.NOT_FOUND);
+    }
+
+    if (exam.type === 'VIP') {
+      const isVipUser = !!user?.vipExpiresAt && new Date(user.vipExpiresAt) > new Date();
+      
+      // Check Staff / Admin roles to bypass VIP restriction
+      const userRolesCount = await prisma.userRole.count({ where: { userId } });
+      const isStaff = user?.isSuperAdmin || userRolesCount > 0;
+      
+      if (!isVipUser && !isStaff) {
+        throw new ApiError("Bài thi này chỉ dành cho tài khoản VIP", StatusCodes.FORBIDDEN);
+      }
+    }
+
     // Check xem có Result IN_PROGRESS không
     const existingResult = await prisma.result.findFirst({
       where: { examId, userId, status: "IN_PROGRESS" },

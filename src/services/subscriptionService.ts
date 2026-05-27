@@ -5,6 +5,7 @@ import { uploadToCloudinary } from '@/config/cloudinary';
 import { hashHelper } from '@/utils/hashHelper';
 import { subscriptionRiskService } from './subscriptionRiskService';
 import { createAdminLog } from '@/utils/adminLogHelper';
+import { notificationService } from './notificationService';
 
 export const subscriptionService = {
   createSubscription: async (userId: string, data: any, fileBuffer: Buffer) => {
@@ -144,6 +145,14 @@ export const subscriptionService = {
       ipAddress
     });
 
+    // Thông báo realtime cho học viên
+    await notificationService.createNotification(
+      subscription.userId,
+      'Nâng cấp VIP thành công!',
+      `Gói ${subscription.plan} của bạn đã được duyệt. Hạn sử dụng mới: ${expiresAt.toLocaleDateString('vi-VN')}`,
+      'SUBSCRIPTION'
+    );
+
     return updated;
   },
 
@@ -177,6 +186,14 @@ export const subscriptionService = {
       detail: { reason },
       ipAddress
     });
+
+    // Thông báo realtime cho học viên
+    await notificationService.createNotification(
+      subscription.userId,
+      'Yêu cầu nâng cấp bị từ chối',
+      `Lý do: ${reason}`,
+      'SUBSCRIPTION'
+    );
 
     return updated;
   },

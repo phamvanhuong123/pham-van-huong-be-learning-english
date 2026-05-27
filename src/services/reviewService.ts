@@ -19,10 +19,41 @@ const getReviewDetails = async (resultId: string, userId: string) => {
     throw new ApiError("Bài thi chưa hoàn thành, không thể xem lại", StatusCodes.BAD_REQUEST);
   }
 
-  // 2. Fetch Exam with all questions, options, and passage groups
+  // 2. Fetch Exam with all questions, options, and passage groups (including childExams for FULL test)
   const exam = await prisma.exam.findUnique({
     where: { id: result.examId! },
     include: {
+      childExams: {
+        include: {
+          passageGroups: {
+            include: {
+              passages: {
+                orderBy: { order: "asc" }
+              },
+              questions: {
+                where: { isDeleted: false },
+                orderBy: { order: "asc" },
+                include: {
+                  options: true,
+                  notes: {
+                    where: { userId } // fetch user's note for this question
+                  }
+                }
+              }
+            }
+          },
+          questions: {
+            where: { isDeleted: false, passageGroupId: null },
+            orderBy: { order: "asc" },
+            include: {
+              options: true,
+              notes: {
+                where: { userId }
+              }
+            }
+          }
+        }
+      },
       passageGroups: {
         include: {
           passages: {
@@ -60,12 +91,12 @@ const getReviewDetails = async (resultId: string, userId: string) => {
   // 3. Map answers to questions
   const answerMap = new Map(result.resultDetails.map(rd => [rd.questionId, rd]));
 
-  const mapQuestionWithReview = (q: any) => {
+  const mapQuestionWithReview = (q: any, fallbackPart?: string) => {
     const detail = answerMap.get(q.id);
     return {
       id: q.id,
       order: q.order,
-      part: q.part,
+      part: q.part || fallbackPart,
       questionText: q.questionText,
       difficulty: q.difficulty,
       explanation: q.explanation,
@@ -83,20 +114,31 @@ const getReviewDetails = async (resultId: string, userId: string) => {
     };
   };
 
-  const mappedPassageGroups = exam.passageGroups.map(pg => ({
-    id: pg.id,
-    passages: pg.passages.map(p => ({
-      id: p.id,
-      content: p.content,
-      transcript: p.transcript, // Include transcript in review mode
-      mediaUrl: p.mediaUrl,
-      mediaType: p.mediaType,
-      order: p.order,
-    })),
-    questions: pg.questions.map(mapQuestionWithReview)
-  }));
+  const mapPassageGroups = (passageGroups: any[], fallbackPart?: string) => {
+    return passageGroups.map(pg => ({
+      id: pg.id,
+      passages: pg.passages.map((p: any) => ({
+        id: p.id,
+        content: p.content,
+        transcript: p.transcript, // Include transcript in review mode
+        mediaUrl: p.mediaUrl,
+        mediaType: p.mediaType,
+        order: p.order,
+      })),
+      questions: pg.questions.map((q: any) => mapQuestionWithReview(q, fallbackPart))
+    }));
+  };
 
-  const mappedStandaloneQuestions = exam.questions.map(mapQuestionWithReview);
+  const mappedPassageGroups = mapPassageGroups(exam.passageGroups, exam.part);
+  const mappedStandaloneQuestions = exam.questions.map((q: any) => mapQuestionWithReview(q, exam.part));
+
+  if (exam.childExams && exam.childExams.length > 0) {
+    exam.childExams.forEach((child: any) => {
+      mappedPassageGroups.push(...mapPassageGroups(child.passageGroups, child.part));
+      mappedStandaloneQuestions.push(...child.questions.map((q: any) => mapQuestionWithReview(q, child.part)));
+    });
+  }
+
 
   return {
     id: exam.id,

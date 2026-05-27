@@ -10,72 +10,76 @@ import { generateToken, verifyToken } from "@/utils/jwtTokenHelper";
 import bcrypt from "bcrypt";
 import { StatusCodes } from "http-status-codes";
 
-const login = async(data : LoginPayload, ipAddress?: string, userAgent?: string) => {
-    const exsistUser = await prisma.user.findFirst({
-      where: {
-        email: data.email,
-      },
-      include: {
-        userRoles: {
-          where: {
-            OR: [
-              { expiresAt: null },
-              { expiresAt: { gt: new Date() } }
-            ]
-          },
-          include: {
-            role: {
-              include: {
-                rolePermissions: { include: { permission: true } }
-              }
+const login = async (data: LoginPayload, ipAddress?: string, userAgent?: string) => {
+  const exsistUser = await prisma.user.findFirst({
+    where: {
+      email: data.email,
+    },
+    include: {
+      userRoles: {
+        where: {
+          OR: [
+            { expiresAt: null },
+            { expiresAt: { gt: new Date() } }
+          ]
+        },
+        include: {
+          role: {
+            include: {
+              rolePermissions: { include: { permission: true } }
             }
           }
         }
       }
-    });
-
-    if(!exsistUser)
-      throw new ApiError("Email hoặc mật khẩu không hợp lệ",StatusCodes.BAD_REQUEST)
-    
-    const isValidPassword = await bcrypt.compare(data.password, exsistUser.passwordHash)
-
-    if(!isValidPassword)
-      throw new ApiError("Email hoặc mật khẩu không hợp lệ",StatusCodes.BAD_REQUEST)
-
-    if(!exsistUser.emailVerified) 
-      throw new ApiError("Email chưa xác thực",StatusCodes.BAD_REQUEST)
-    if(exsistUser.isBanned)
-      throw new ApiError("Tài khoản của bạn đã bị khoá",StatusCodes.BAD_REQUEST)
-
-    const permissions = exsistUser.userRoles.flatMap(ur =>
-      ur.role.rolePermissions.map(rp => rp.permission.code)
-    );
-
-    const userInfo = {
-      email : exsistUser.email,
-      name : exsistUser.name,
-      avatarUrl : exsistUser.avatarUrl,
-      id : exsistUser.id,
-      role : exsistUser.isSuperAdmin ? "superAdmin" : "user",
-      isSuperAdmin: exsistUser.isSuperAdmin,
-      permissions
     }
+  });
 
-    const refreshToken = generateToken(userInfo,env.REFRESH_TOKEN_SECRET_SIGNATURE!,'1 day')
-    const accessToken = generateToken(userInfo,env.ACCESS_TOKEN_SECRET_SIGNATURE!,'1h')
+  if (!exsistUser)
+    throw new ApiError("Email hoặc mật khẩu không hợp lệ", StatusCodes.BAD_REQUEST)
 
-    const session = await prisma.userSession.create({
-      data: {
-        userId: exsistUser.id,
-        ipAddress,
-        deviceInfo: userAgent,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 1 day
-      }
-    });
+  const isValidPassword = await bcrypt.compare(data.password, exsistUser.passwordHash)
 
-    return {refreshToken, accessToken, userInfo, sessionId: session.id}
+  if (!isValidPassword)
+    throw new ApiError("Email hoặc mật khẩu không hợp lệ", StatusCodes.BAD_REQUEST)
 
+  if (!exsistUser.emailVerified)
+    throw new ApiError("Email chưa xác thực", StatusCodes.BAD_REQUEST)
+  if (exsistUser.isBanned)
+    throw new ApiError("Tài khoản của bạn đã bị khoá", StatusCodes.BAD_REQUEST)
+
+  const permissions = exsistUser.userRoles.flatMap(ur =>
+    ur.role.rolePermissions.map(rp => rp.permission.code)
+  );
+
+  const isStaff = exsistUser.isSuperAdmin || permissions.length > 0;
+  const isVipUser = !!exsistUser.vipExpiresAt && new Date(exsistUser.vipExpiresAt) > new Date();
+
+  const userInfo = {
+    email: exsistUser.email,
+    name: exsistUser.name,
+    avatarUrl: exsistUser.avatarUrl,
+    id: exsistUser.id,
+    role: exsistUser.isSuperAdmin ? "superAdmin" : "user",
+    isSuperAdmin: exsistUser.isSuperAdmin,
+    isVip: isStaff || isVipUser,
+    permissions
   }
+
+  const refreshToken = generateToken(userInfo, env.REFRESH_TOKEN_SECRET_SIGNATURE!, '1 day')
+  const accessToken = generateToken(userInfo, env.ACCESS_TOKEN_SECRET_SIGNATURE!, '1h')
+
+  const session = await prisma.userSession.create({
+    data: {
+      userId: exsistUser.id,
+      ipAddress,
+      deviceInfo: userAgent,
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 1 day
+    }
+  });
+
+  return { refreshToken, accessToken, userInfo, sessionId: session.id }
+
+}
 
 
 const register = async (data: RegisterRequest) => {
@@ -95,6 +99,8 @@ const register = async (data: RegisterRequest) => {
   }
   const passwordHash = await bcrypt.hash(data.password, 10);
   const { hashedToken, token } = generateRandomToken();
+  const standardRole = await prisma.role.findUnique({ where: { name: 'STANDARD' } });
+
   const user = await prisma.user.create({
     data: {
       email: data.email,
@@ -102,6 +108,11 @@ const register = async (data: RegisterRequest) => {
       name: data.name,
       verificationToken: hashedToken,
       verificationExpiry: new Date(Date.now() + 1 * 60 * 60 * 1000), // 1 giờ
+      userRoles: standardRole ? {
+        create: {
+          roleId: standardRole.id
+        }
+      } : undefined
     },
   });
   try {
@@ -112,7 +123,6 @@ const register = async (data: RegisterRequest) => {
     );
     return user.email;
   } catch (err) {
-    // Luôn luôn xóa user nếu gửi email thất bại, bất kể là lỗi gì
     await prisma.user
       .delete({ where: { id: user.id } })
       .catch((cleanupError) => {
@@ -160,13 +170,19 @@ const verifyEmail = async (token: string) => {
       verificationExpiry: null,
     },
   });
-  
+
   return true;
 };
 
 const refreshToken = async (token: string) => {
   try {
     const decoded = verifyToken(token, env.REFRESH_TOKEN_SECRET_SIGNATURE!) as any;
+
+    // Check real VIP status from DB
+    const user = await prisma.user.findUnique({ where: { id: decoded.id } });
+    const isStaff = user?.isSuperAdmin || (decoded.permissions && decoded.permissions.length > 0);
+    const isVipUser = user ? (!!user.vipExpiresAt && new Date(user.vipExpiresAt) > new Date()) : false;
+
     const userInfo = {
       email: decoded.email,
       name: decoded.name,
@@ -174,6 +190,7 @@ const refreshToken = async (token: string) => {
       id: decoded.id,
       role: decoded.role,
       isSuperAdmin: decoded.isSuperAdmin,
+      isVip: isStaff || isVipUser,
       permissions: decoded.permissions || []
     };
     const newAccessToken = generateToken(userInfo, env.ACCESS_TOKEN_SECRET_SIGNATURE!, '1h');
@@ -198,7 +215,7 @@ const forgotPassword = async (email: string) => {
     // Return silently to prevent email enumeration
     return;
   }
-  
+
   if (!user.emailVerified) {
     throw new ApiError("Email chưa được xác thực", StatusCodes.BAD_REQUEST);
   }
