@@ -11,6 +11,7 @@ import subscriptionRoute from '@/routes/v1/subscriptionRoutes'
 import notificationRoute from '@/routes/v1/notificationRoutes'
 import profileRoute from '@/routes/v1/profileRoutes'
 import sessionRoute from '@/routes/v1/sessionRoutes'
+import aiRoute from '@/routes/v1/aiRoutes'
 
 const route = Router()
 
@@ -28,5 +29,6 @@ route.use('/grammar', grammarRoute)
 route.use('/notifications', notificationRoute)
 route.use('/profile', profileRoute)
 route.use('/sessions', sessionRoute)
+route.use('/ai', aiRoute)
 
 export const APIs_v1 = route

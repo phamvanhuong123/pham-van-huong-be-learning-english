@@ -276,6 +276,7 @@ model Question {
   options      Option[]
   resultDetails ResultDetail[]
   notes         QuestionNote[]
+  aiExplanation AiQuestionExplanation?
 
   @@index([examId, order])
   @@index([grammarTopicId])
@@ -531,4 +532,19 @@ enum SubscriptionStatus {
   APPROVED
   REJECTED
   REVOKED
+}
+
+// ─────────────────────────────────────────
+// AI INTEGRATION
+// ─────────────────────────────────────────
+
+model AiQuestionExplanation {
+  id           String   @id @default(uuid())
+  questionId   String   @unique
+  content      String   @db.Text
+  model        String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  question     Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 }
