@@ -62,6 +62,9 @@ route.get("/:id/note", authenticate, questionController.getNote);
 // POST /question/:id/note
 route.post("/:id/note", authenticate, questionController.upsertNote);
 
+// DELETE /question/:id/note
+route.delete("/:id/note", authenticate, questionController.deleteNote);
+
 // GET /question/:id
 route.get("/:id", questionController.getQuestionDetail);
 

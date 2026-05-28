@@ -30,7 +30,19 @@ const getNote = async (userId: string, questionId: string) => {
   });
 };
 
+const deleteNote = async (userId: string, questionId: string) => {
+  return await prisma.questionNote.delete({
+    where: {
+      userId_questionId: {
+        userId,
+        questionId
+      }
+    }
+  });
+};
+
 export const questionNoteService = {
   upsertNote,
-  getNote
+  getNote,
+  deleteNote
 };

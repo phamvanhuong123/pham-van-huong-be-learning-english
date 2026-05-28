@@ -306,6 +306,25 @@ const upsertNote = async (req: Request, res: Response, next: NextFunction) => {
   }
 };
 
+/**
+ * DELETE /question/:id/note
+ * Xóa ghi chú của user cho 1 câu hỏi
+ */
+const deleteNote = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const userId = req.user!.id;
+    const questionId = req.params.id as string;
+    
+    await questionNoteService.deleteNote(userId, questionId);
+    res.status(StatusCodes.OK).json({
+      statusCode: StatusCodes.OK,
+      message: "Xóa ghi chú thành công",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const questionController = {
   uploadMedia,
   createStandaloneQuestion,
@@ -319,5 +338,6 @@ export const questionController = {
   deleteQuestion,
   deleteQuestionGroup,
   getNote,
-  upsertNote
+  upsertNote,
+  deleteNote
 };

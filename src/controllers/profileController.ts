@@ -69,6 +69,15 @@ export const profileController = {
     }
   },
 
+  getMyNotes: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const notes = await profileService.getMyNotes(req.user!.id);
+      res.status(StatusCodes.OK).json({ data: notes });
+    } catch (error) {
+      next(error);
+    }
+  },
+
   deleteAccount: async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { password } = req.body;

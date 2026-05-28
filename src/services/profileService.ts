@@ -136,6 +136,23 @@ export const profileService = {
     };
   },
 
+  getMyNotes: async (userId: string) => {
+    const notes = await prisma.questionNote.findMany({
+      where: { userId },
+      include: {
+        question: {
+          select: {
+            id: true,
+            part: true,
+            questionText: true,
+          }
+        }
+      },
+      orderBy: { updatedAt: 'desc' }
+    });
+    return notes;
+  },
+
   deleteAccount: async (userId: string, passwordConfirm: string) => {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new ApiError('User not found', StatusCodes.NOT_FOUND);

@@ -12,6 +12,7 @@ route.put('/', profileController.updateProfile);
 route.post('/avatar', uploadAvatar, profileController.uploadAvatar);
 route.put('/change-password', profileController.changePassword);
 route.get('/stats', profileController.getStats);
+route.get('/notes', profileController.getMyNotes);
 route.delete('/', profileController.deleteAccount);
 
 export default route;
