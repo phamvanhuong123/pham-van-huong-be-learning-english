@@ -24,6 +24,11 @@ route.patch('/users/:id/role', authorize('user.manage'), adminUserController.upd
 route.post('/users/:id/reset-password', authorize('user.manage'), adminUserController.resetPassword);
 route.delete('/users/:id/sessions', authorize('user.manage'), adminUserController.kickAllSessions);
 
+// ─── Results ────────────────────────────────────────────────────
+import { adminResultController } from '@/controllers/adminResultController';
+route.get('/users/:id/results', authorize('user.view'), adminResultController.getUserResults);
+route.get('/results/:id', authorize('user.view'), adminResultController.getResultDetails);
+
 // ─── Notifications ──────────────────────────────────────────────
 route.get('/notifications', authorize('notification.view'), adminNotificationController.getBroadcasts);
 route.post('/notifications/broadcast', authorize('notification.broadcast'), adminNotificationController.broadcast);
