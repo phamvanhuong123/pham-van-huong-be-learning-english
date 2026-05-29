@@ -2,10 +2,11 @@ import { prisma } from '@/config/prisma';
 
 export const adminDashboardService = {
   getStats: async () => {
-    const [totalUsers, totalExams, totalResults, recentLogs] = await Promise.all([
+    const [totalUsers, totalExams, totalResults, pendingSubscriptions, recentLogs] = await Promise.all([
       prisma.user.count({ where: { isBanned: false } }).catch(() => prisma.user.count()),
       prisma.exam.count({ where: { isDeleted: false } }),
       prisma.result.count(),
+      prisma.subscription.count({ where: { status: 'PENDING' } }),
       prisma.adminLog.findMany({
         take: 10,
         orderBy: { createdAt: 'desc' },
@@ -54,7 +55,8 @@ export const adminDashboardService = {
       stats: {
         totalUsers,
         totalExams,
-        totalResults
+        totalResults,
+        pendingSubscriptions
       },
       chartData,
       recentActivity: recentLogs

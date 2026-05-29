@@ -72,8 +72,8 @@ const refreshToken = async (req: Request, res: Response, next: NextFunction) => 
       throw new ApiError("Refresh token không tồn tại", StatusCodes.UNAUTHORIZED);
     }
     
-    const accessToken = await authService.refreshToken(token);
-    res.status(StatusCodes.OK).json({ accessToken });
+    const result = await authService.refreshToken(token);
+    res.status(StatusCodes.OK).json({ accessToken: result.accessToken, user: result.user });
   } catch (error) {
     next(error);
   }

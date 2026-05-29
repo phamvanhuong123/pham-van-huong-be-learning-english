@@ -12,7 +12,7 @@ import {
   PASSAGE_SELECT_FIELDS,
 } from "@/utils/contanst";
 import { getActiveExam } from "@/utils/examHelper";
-import { validatePartMedia, validateQuestionText } from "@/utils/toeicRules";
+import { validatePartMedia, validateQuestionText, validateQuestionOrder } from "@/utils/toeicRules";
 import ApiError from "@/utils/ApiError";
 import { StatusCodes } from "http-status-codes";
 
@@ -47,6 +47,9 @@ const createStandaloneQuestion = async (data: CreateStandaloneQuestionBody) => {
     );
   }
 
+  // Validate order bounds
+  validateQuestionOrder(exam.part, data.order, 0);
+
   // Kiểm tra order không trùng
   await checkOrderConflict(data.examId, [data.order]);
 
@@ -80,8 +83,11 @@ const createQuestionGroup = async (data: CreateQuestionGroupBody) => {
   // Validate media rule theo Part
   validatePartMedia(exam.part, data.passages);
 
-  // Validate questionText theo Part
-  data.questions.forEach((q, i) => validateQuestionText(exam.part, q.questionText, i));
+  // Validate questionText và order theo Part
+  data.questions.forEach((q, i) => {
+    validateQuestionText(exam.part, q.questionText, i);
+    validateQuestionOrder(exam.part, q.order, i);
+  });
 
   // Kiểm tra order không trùng với nhau trong request
   const orders = data.questions.map((q) => q.order);
@@ -266,6 +272,8 @@ const updateQuestion = async (id: string, data: UpdateQuestionBody) => {
 
   // Validate order mới không trùng
   if (data.order !== undefined && data.order !== existing.order && existing.examId) {
+    const exam = await getActiveExam(existing.examId);
+    validateQuestionOrder(exam.part, data.order, 0);
     await checkOrderConflict(existing.examId, [data.order], id);
   }
 
@@ -319,12 +327,13 @@ const updatePassageGroup = async (groupId: string, data: UpdatePassageGroupBody)
   }
 
   return await prisma.$transaction(async (tx) => {
-    // Nếu cập nhật passages: xóa media Cloudinary cũ → xóa passage cũ → tạo mới
     if (data.passages) {
-      // Xóa media cũ trên Cloudinary
+
+      const newMediaUrls = new Set(data.passages.map((p) => p.mediaUrl).filter(Boolean));
+
       await Promise.all(
         existing.passages
-          .filter((p) => p.mediaUrl && p.mediaType !== "TEXT")
+          .filter((p) => p.mediaUrl && p.mediaType !== "TEXT" && !newMediaUrls.has(p.mediaUrl))
           .map((p) => deleteMediaByUrl(p.mediaUrl!, p.mediaType as "AUDIO" | "IMAGE" | "VIDEO"))
       );
 

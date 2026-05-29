@@ -54,8 +54,8 @@ export const clientExamService = {
       where: { id: examId, isPublished: true, isDeleted: false },
       include: {
         childExams: {
-          where: { isPublished: true, isDeleted: false },
-          orderBy: { createdAt: 'asc' }, // Giữ thứ tự part
+          where: { isDeleted: false },
+          orderBy: { createdAt: 'asc' },
           include: {
             passageGroups: {
               include: {
@@ -166,6 +166,13 @@ export const clientExamService = {
       });
     }
 
+    mappedStandaloneQuestions.sort((a: any, b: any) => a.order - b.order);
+    mappedPassageGroups.sort((a: any, b: any) => {
+      const aOrder = a.questions.length > 0 ? a.questions[0].order : 0;
+      const bOrder = b.questions.length > 0 ? b.questions[0].order : 0;
+      return aOrder - bOrder;
+    });
+
     return {
       id: exam.id,
       title: exam.title,
@@ -193,11 +200,20 @@ export const clientExamService = {
 
     if (exam.type === 'VIP') {
       const isVipUser = !!user?.vipExpiresAt && new Date(user.vipExpiresAt) > new Date();
-      
+
       // Check Staff / Admin roles to bypass VIP restriction
-      const userRolesCount = await prisma.userRole.count({ where: { userId } });
-      const isStaff = user?.isSuperAdmin || userRolesCount > 0;
-      
+      const staffRolesCount = await prisma.userRole.count({
+        where: {
+          userId,
+          role: {
+            name: {
+              in: ['SUPER_ADMIN', 'ADMIN']
+            }
+          }
+        }
+      });
+      const isStaff = user?.isSuperAdmin || staffRolesCount > 0;
+
       if (!isVipUser && !isStaff) {
         throw new ApiError("Bài thi này chỉ dành cho tài khoản VIP", StatusCodes.FORBIDDEN);
       }
@@ -273,7 +289,7 @@ export const clientExamService = {
 
     // Lấy toàn bộ câu hỏi của đề và các phần thi con (nếu có)
     const childExams = await prisma.exam.findMany({
-      where: { parentExamId: exam.id, isDeleted: false, isPublished: true },
+      where: { parentExamId: exam.id, isDeleted: false },
       select: { id: true }
     });
     const examIds = [exam.id, ...childExams.map(c => c.id)];
@@ -286,7 +302,7 @@ export const clientExamService = {
         ],
         isDeleted: false
       },
-      include: { 
+      include: {
         options: true,
         exam: { select: { part: true } },
         passageGroup: { include: { exam: { select: { part: true } } } }

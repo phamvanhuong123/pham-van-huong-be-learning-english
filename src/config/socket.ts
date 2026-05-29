@@ -5,20 +5,18 @@ import { env } from '@/config/environment';
 
 let io: SocketIOServer;
 
-// Map: userId -> Set<socketId>
 const userSocketMap = new Map<string, Set<string>>();
 
 export const initSocket = (httpServer: HttpServer) => {
   io = new SocketIOServer(httpServer, {
     cors: {
-      origin: [env.FRONTEND_URL || 'http://localhost:5173'],
+      origin: [env.FRONTEND_URL, 'http://localhost:5173'].filter(Boolean) as string[],
       methods: ['GET', 'POST'],
       credentials: true,
     },
   });
 
   io.on('connection', (socket) => {
-    // Client must emit 'authenticate' with { token: '...' } immediately after connection
     socket.on('authenticate', (data: { token: string }) => {
       try {
         const decoded = verifyToken(data.token, env.ACCESS_TOKEN_SECRET_SIGNATURE!) as any;
@@ -30,7 +28,7 @@ export const initSocket = (httpServer: HttpServer) => {
           userSocketMap.set(userId, new Set());
         }
         userSocketMap.get(userId)!.add(socket.id);
-        
+
         socket.emit('authenticated', { success: true });
       } catch (error) {
         socket.emit('unauthorized', { message: 'Invalid or expired token' });

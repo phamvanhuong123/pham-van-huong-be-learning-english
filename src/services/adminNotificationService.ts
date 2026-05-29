@@ -3,14 +3,13 @@ import { emitToUser } from '@/config/socket';
 
 export const adminNotificationService = {
   broadcast: async (adminId: string, data: { title: string; body: string; type: any; targetRole: string }) => {
-    // 1. Determine target users
     let users: any[] = [];
     if (data.targetRole === 'ALL') {
       users = await prisma.user.findMany({ where: { isBanned: false }, select: { id: true } });
     } else if (data.targetRole === 'STANDARD') {
       users = await prisma.user.findMany({
-        where: { 
-          isBanned: false, 
+        where: {
+          isBanned: false,
           OR: [
             { vipExpiresAt: null },
             { vipExpiresAt: { lt: new Date() } }
@@ -20,15 +19,17 @@ export const adminNotificationService = {
       });
     } else if (data.targetRole === 'VIP') {
       users = await prisma.user.findMany({
-        where: { 
-          isBanned: false, 
-          vipExpiresAt: { gt: new Date() } 
+        where: {
+          isBanned: false,
+          vipExpiresAt: { gt: new Date() }
         },
         select: { id: true }
       });
     }
 
-    // 2. Create Broadcast record
+
+    users = users.filter(u => u.id !== adminId);
+
     const broadcast = await prisma.broadcast.create({
       data: {
         title: data.title,
@@ -39,7 +40,6 @@ export const adminNotificationService = {
       }
     });
 
-    // 3. Create Notifications
     if (users.length > 0) {
       const notificationData = users.map(u => ({
         userId: u.id,
@@ -48,12 +48,10 @@ export const adminNotificationService = {
         body: broadcast.body,
         type: broadcast.type
       }));
-      
+
       await prisma.notification.createMany({
         data: notificationData
       });
-
-      // 4. Socket Emit
       const emittedData = {
         id: broadcast.id,
         title: broadcast.title,
@@ -61,7 +59,7 @@ export const adminNotificationService = {
         type: broadcast.type,
         createdAt: broadcast.createdAt
       };
-      
+
       users.forEach(u => {
         emitToUser(u.id, 'new_notification', emittedData);
       });

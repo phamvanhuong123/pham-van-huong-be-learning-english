@@ -1,7 +1,7 @@
 import { prisma } from '@/config/prisma';
 import ApiError from '@/utils/ApiError';
 import { StatusCodes } from 'http-status-codes';
-import { uploadToCloudinary } from '@/config/cloudinary';
+import { uploadToCloudinary, deleteMediaByUrl } from '@/config/cloudinary';
 import { hashHelper } from '@/utils/hashHelper';
 import { subscriptionRiskService } from './subscriptionRiskService';
 import { createAdminLog } from '@/utils/adminLogHelper';
@@ -269,19 +269,6 @@ export const subscriptionService = {
     if (!subscription) throw new ApiError('Không tìm thấy yêu cầu', StatusCodes.NOT_FOUND);
     if (subscription.status !== 'APPROVED') throw new ApiError('Chỉ có thể thu hồi yêu cầu đã APPROVED', StatusCodes.BAD_REQUEST);
 
-    let months = 1;
-    if (subscription.plan === 'VIP_3_MONTH') months = 3;
-    if (subscription.plan === 'VIP_6_MONTH') months = 6;
-    const daysToSubtract = months * 30;
-
-    const currentExpiry = subscription.user.vipExpiresAt;
-    let newExpiry: Date | null = null;
-    if (currentExpiry) {
-      newExpiry = new Date(currentExpiry);
-      newExpiry.setDate(newExpiry.getDate() - daysToSubtract);
-      if (newExpiry < new Date()) newExpiry = null;
-    }
-
     const updated = await prisma.$transaction(async (tx) => {
       const sub = await tx.subscription.update({
         where: { id: subscriptionId },
@@ -294,7 +281,7 @@ export const subscriptionService = {
       });
       await tx.user.update({
         where: { id: subscription.userId },
-        data: { vipExpiresAt: newExpiry }
+        data: { vipExpiresAt: null }
       });
       return sub;
     });
@@ -304,7 +291,7 @@ export const subscriptionService = {
       action: 'subscription.revoke',
       targetType: 'Subscription',
       targetId: subscriptionId,
-      detail: { reason, daysToSubtract },
+      detail: { reason },
       ipAddress
     });
 
@@ -317,6 +304,10 @@ export const subscriptionService = {
     const subscription = await prisma.subscription.findUnique({ where: { id: subscriptionId } });
     if (!subscription) throw new ApiError('Không tìm thấy yêu cầu', StatusCodes.NOT_FOUND);
     if (subscription.status === 'APPROVED') throw new ApiError('Không thể xóa yêu cầu đã APPROVED', StatusCodes.BAD_REQUEST);
+
+    if (subscription.proofUrl) {
+      await deleteMediaByUrl(subscription.proofUrl, 'IMAGE');
+    }
 
     await prisma.subscription.delete({ where: { id: subscriptionId } });
 

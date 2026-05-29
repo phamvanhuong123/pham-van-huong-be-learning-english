@@ -196,7 +196,7 @@ const refreshToken = async (token: string) => {
       permissions: decoded.permissions || []
     };
     const newAccessToken = generateToken(userInfo, env.ACCESS_TOKEN_SECRET_SIGNATURE!, '1h');
-    return newAccessToken;
+    return { accessToken: newAccessToken, user: userInfo };
   } catch (error) {
     throw new ApiError("Token không hợp lệ hoặc đã hết hạn", StatusCodes.UNAUTHORIZED);
   }
@@ -214,8 +214,7 @@ const logout = async (sessionId?: string) => {
 const forgotPassword = async (email: string) => {
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) {
-    // Return silently to prevent email enumeration
-    return;
+    throw new ApiError("Email không tồn tại trong hệ thống", StatusCodes.NOT_FOUND);
   }
 
   if (!user.emailVerified) {
