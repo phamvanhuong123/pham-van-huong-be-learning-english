@@ -4,6 +4,7 @@ import { vocabImportService } from '@/services/vocabImportService';
 import { StatusCodes } from 'http-status-codes';
 import { createVocabSchema, updateVocabSchema, queryVocabSchema } from '@/validators/vocabValidator';
 import ApiError from '@/utils/ApiError';
+import { vocabSrsService } from '@/services/vocabSrsService';
 
 export const vocabController = {
   getVocabList: async (req: Request, res: Response, next: NextFunction) => {
@@ -83,6 +84,47 @@ export const vocabController = {
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', 'attachment; filename=vocabulary.csv');
       res.status(StatusCodes.OK).send(csvString);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  getDashboardStatsSrs: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const stats = await vocabSrsService.getDashboardStats(req.user!.id);
+      res.status(StatusCodes.OK).json({ data: stats });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  getStudySessionSrs: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { topic, limit } = req.query;
+      if (!topic || typeof topic !== 'string') {
+        throw new ApiError('Topic is required', StatusCodes.BAD_REQUEST);
+      }
+
+      const parsedLimit = limit ? parseInt(limit as string) : 20;
+      const sessionCards = await vocabSrsService.getStudySession(req.user!.id, topic as string, parsedLimit);
+
+      res.status(StatusCodes.OK).json({ data: sessionCards });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  submitReviewSrs: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { vocabId } = req.params;
+      const { rating } = req.body;
+
+      if (!rating || ![1, 2, 3, 4].includes(rating)) {
+        throw new ApiError('Rating must be 1, 2, 3, or 4', StatusCodes.BAD_REQUEST);
+      }
+
+      const updatedSchedule = await vocabSrsService.submitReview(req.user!.id, vocabId as string, rating);
+      res.status(StatusCodes.OK).json({ data: updatedSchedule[0] });
     } catch (error) {
       next(error);
     }

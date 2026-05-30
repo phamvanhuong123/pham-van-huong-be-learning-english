@@ -12,6 +12,7 @@ const optionSchema = z.object({
 
 const passageSchema = z.object({
   content: z.string().optional(),
+  transcript: z.string().optional(),
   mediaUrl: z.string().url("mediaUrl phải là URL hợp lệ").optional(),
   mediaType: z.enum(["TEXT", "AUDIO", "IMAGE", "VIDEO"], { error: "mediaType không hợp lệ" }),
   order: z.number({ error: "order là bắt buộc" }).int().min(0),

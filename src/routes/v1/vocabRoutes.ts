@@ -2,18 +2,16 @@ import { Router } from 'express';
 import { vocabController } from '@/controllers/vocabController';
 import { authenticate } from '@/middlewares/authenticate';
 
-import { vocabFlashcardController } from '@/controllers/vocabFlashcardController';
 import { uploadCsv, uploadSingleMedia } from '@/middlewares/uploadMiddleware';
 
 const router = Router();
 
 router.use(authenticate);
 
-// Flashcard routes
-router.get('/flashcard/today', vocabFlashcardController.getTodayCards);
-router.post('/flashcard/session', vocabFlashcardController.startSession);
-router.post('/flashcard/:vocabId/review', vocabFlashcardController.reviewCard);
-router.put('/flashcard/session/:sessionId/end', vocabFlashcardController.endSession);
+// SRS Routes (Anki Algorithm)
+router.get('/srs/dashboard-stats', vocabController.getDashboardStatsSrs);
+router.get('/srs/study-session', vocabController.getStudySessionSrs);
+router.post('/srs/:vocabId/review', vocabController.submitReviewSrs);
 
 // CSV Routes
 router.post('/import', uploadCsv, vocabController.importCsv);

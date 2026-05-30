@@ -62,7 +62,7 @@ export const vocabService = {
     }
 
     let finalAudioUrl = data.audioUrl;
-    
+
     if (audioFile) {
       const { uploadToCloudinary } = await import('@/config/cloudinary');
       const uploadResult = await uploadToCloudinary(audioFile.buffer, 'toeic/audio', 'video');
@@ -106,7 +106,7 @@ export const vocabService = {
     }
 
     let finalAudioUrl = data.audioUrl !== undefined ? data.audioUrl : vocab.audioUrl;
-    
+
     if (audioFile) {
       const { uploadToCloudinary } = await import('@/config/cloudinary');
       const uploadResult = await uploadToCloudinary(audioFile.buffer, 'toeic/audio', 'video');
@@ -132,7 +132,7 @@ export const vocabService = {
     if (!vocab || vocab.userId !== userId) {
       throw new ApiError('Từ vựng không tồn tại hoặc không có quyền truy cập', StatusCodes.NOT_FOUND);
     }
-    
+
     if (vocab.audioUrl?.includes('res.cloudinary.com')) {
       const { deleteMediaByUrl } = await import('@/config/cloudinary');
       await deleteMediaByUrl(vocab.audioUrl, 'AUDIO');
@@ -163,5 +163,6 @@ export const vocabService = {
     });
 
     return result;
-  }
+  },
+
 };
