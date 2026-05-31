@@ -11,30 +11,35 @@ import {
 export const vocabSrsService = {
   getDashboardStats: async (userId: string) => {
     const now = new Date();
-    const stats = await prisma.$queryRaw<
-      Array<{
-        topic: string;
-        new_count: number;
-        learning_count: number;
-        review_count: number;
-      }>
-    >`
-      SELECT 
-        COALESCE(v."toeicTopic", 'Uncategorized') as topic,
-        CAST(SUM(CASE WHEN vs.status = 'NEW' THEN 1 ELSE 0 END) AS INTEGER) as new_count,
-        CAST(SUM(CASE WHEN vs.status = 'LEARNING' AND vs."nextReviewAt" <= ${now} THEN 1 ELSE 0 END) AS INTEGER) as learning_count,
-        CAST(SUM(CASE WHEN vs.status = 'REVIEW' AND vs."nextReviewAt" <= ${now} THEN 1 ELSE 0 END) AS INTEGER) as review_count
-      FROM "Vocab" v
-      JOIN "VocabSchedule" vs ON v.id = vs."vocabId"
-      WHERE v."userId" = ${userId}
-      GROUP BY COALESCE(v."toeicTopic", 'Uncategorized')
-    `;
+    
+    // Sử dụng Prisma findMany để tránh lỗi ép kiểu ENUM của Postgres Raw SQL
+    const schedules = await prisma.vocabSchedule.findMany({
+      where: { vocab: { userId } },
+      include: { vocab: { select: { toeicTopic: true } } }
+    });
 
-    return stats.map(stat => ({
-      topic: stat.topic,
-      newCount: stat.new_count,
-      learningCount: stat.learning_count,
-      reviewCount: stat.review_count,
+    const topicStats: Record<string, { newCount: number; learningCount: number; reviewCount: number }> = {};
+
+    schedules.forEach(vs => {
+      const topic = vs.vocab.toeicTopic || 'Uncategorized';
+      if (!topicStats[topic]) {
+        topicStats[topic] = { newCount: 0, learningCount: 0, reviewCount: 0 };
+      }
+
+      if (vs.status === 'NEW') {
+        topicStats[topic].newCount++;
+      } else if (vs.status === 'LEARNING') {
+        topicStats[topic].learningCount++;
+      } else if (vs.status === 'REVIEW' && vs.nextReviewAt <= now) {
+        topicStats[topic].reviewCount++;
+      }
+    });
+
+    return Object.entries(topicStats).map(([topic, stats]) => ({
+      topic,
+      newCount: stats.newCount,
+      learningCount: stats.learningCount,
+      reviewCount: stats.reviewCount,
     }));
   },
 
@@ -43,7 +48,7 @@ export const vocabSrsService = {
     const topicFilter = topic === 'Uncategorized' ? null : topic;
 
     const learningCards = await prisma.vocab.findMany({
-      where: { userId, toeicTopic: topicFilter, schedule: { status: 'LEARNING', nextReviewAt: { lte: now } } },
+      where: { userId, toeicTopic: topicFilter, schedule: { status: 'LEARNING' } },
       include: { schedule: true },
       take: limit
     });

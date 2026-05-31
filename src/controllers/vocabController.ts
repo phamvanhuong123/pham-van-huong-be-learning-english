@@ -5,6 +5,7 @@ import { StatusCodes } from 'http-status-codes';
 import { createVocabSchema, updateVocabSchema, queryVocabSchema } from '@/validators/vocabValidator';
 import ApiError from '@/utils/ApiError';
 import { vocabSrsService } from '@/services/vocabSrsService';
+import { previewNextIntervals } from '@/utils/srsAlgorithm';
 
 export const vocabController = {
   getVocabList: async (req: Request, res: Response, next: NextFunction) => {
@@ -124,7 +125,22 @@ export const vocabController = {
       }
 
       const updatedSchedule = await vocabSrsService.submitReview(req.user!.id, vocabId as string, rating);
-      res.status(StatusCodes.OK).json({ data: updatedSchedule[0] });
+      const scheduleData = updatedSchedule[0];
+      
+      // Tính toán previewIntervals mới để trả về cho Frontend hiển thị lần lặp lại
+      const preview = previewNextIntervals({
+        status: scheduleData.status as any,
+        repetitions: scheduleData.repetitions,
+        interval: scheduleData.interval,
+        ef: scheduleData.ef
+      });
+
+      res.status(StatusCodes.OK).json({ 
+        data: {
+          ...scheduleData,
+          previewIntervals: preview
+        } 
+      });
     } catch (error) {
       next(error);
     }
