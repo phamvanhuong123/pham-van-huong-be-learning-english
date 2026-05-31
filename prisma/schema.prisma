@@ -20,6 +20,8 @@ model User {
   examDate            DateTime?
   emailVerified       Boolean   @default(false)
   isBanned            Boolean   @default(false)
+  isDeleted           Boolean   @default(false)
+  deletedAt           DateTime?
   isSuperAdmin        Boolean   @default(false)
   vipExpiresAt        DateTime?
   phoneNumber         String?   @unique
@@ -34,10 +36,72 @@ model User {
 
   userRoles UserRole[]
   sessions  UserSession[]
+  results   Result[]
+  adminLogs AdminLog[]
+  questionNotes QuestionNote[]
+  sentBroadcasts Broadcast[]    @relation("BroadcastSender")
+  notifications  Notification[]
+
+  // Phase 5: Vocab, Grammar, Subscription
+  vocabs             Vocab[]
+  vocabStudySessions VocabStudySession[]
+  vocabReviewLogs    VocabReviewLog[]
+  subscriptions          Subscription[]  @relation("SubscriptionOwner")
+  approvedSubscriptions  Subscription[]  @relation("SubscriptionApprover")
+  rejectedSubscriptions  Subscription[]  @relation("SubscriptionRejecter")
+  bannedBankAccounts     BannedBankAccount[]
 
   @@index([email])
   @@index([verificationToken])
   @@index([resetPasswordToken])
+}
+
+// ─────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────
+
+enum NotificationType {
+  SYSTEM
+  SUBSCRIPTION
+  EXAM_REMINDER
+  VOCAB_REMINDER
+  STREAK_REMINDER
+  AI_COMPLETE
+}
+
+model Broadcast {
+  id         String           @id @default(uuid())
+  title      String
+  body       String
+  targetRole String           // "ALL" | "STANDARD" | "VIP"
+  sentBy     String
+  type       NotificationType @default(SYSTEM)
+  createdAt  DateTime         @default(now())
+
+  sender        User           @relation("BroadcastSender", fields: [sentBy], references: [id])
+  notifications Notification[]
+
+  @@index([createdAt])
+  @@index([sentBy])
+}
+
+model Notification {
+  id          String           @id @default(uuid())
+  userId      String
+  broadcastId String?
+  title       String
+  body        String
+  isRead      Boolean          @default(false)
+  type        NotificationType @default(SYSTEM)
+  isDeleted   Boolean          @default(false)
+  deletedAt   DateTime?
+  createdAt   DateTime         @default(now())
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  broadcast Broadcast? @relation(fields: [broadcastId], references: [id], onDelete: SetNull)
+
+  @@index([userId, isRead, isDeleted])
+  @@index([userId, createdAt])
 }
 
 model Role {
@@ -99,4 +163,390 @@ model UserSession {
 
   @@index([userId, isActive])
   @@index([userId, lastActiveAt])
+}
+
+// ─────────────────────────────────────────
+// Exam
+// ─────────────────────────────────────────
+model Exam {
+  id           String     @id @default(uuid())
+  title        String
+  description  String?
+  part         ExamPart
+  difficulty   Difficulty
+  type         ExamType   @default(FREE)
+  duration     Int
+  isPublished  Boolean    @default(false)
+  isDeleted    Boolean    @default(false)
+  deletedAt    DateTime?
+  parentExamId String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  parentExam    Exam?          @relation("ExamParts", fields: [parentExamId], references: [id])
+  childExams    Exam[]         @relation("ExamParts")
+  passageGroups PassageGroup[]
+  questions     Question[]
+  results       Result[]
+
+  @@index([part, difficulty, type, isPublished, isDeleted])
+  @@index([isDeleted, deletedAt])
+}
+
+enum ExamPart {
+  PART1
+  PART2
+  PART3
+  PART4
+  PART5
+  PART6
+  PART7
+  FULL
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum ExamType {
+  FREE
+  VIP
+}
+
+// ─────────────────────────────────────────
+// GrammarTopic, PassageGroup, Passage, Question, Option
+// ─────────────────────────────────────────
+
+model GrammarTopic {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  slug        String  @unique
+  description String?
+
+  questions Question[]
+  results   Result[]
+}
+
+model PassageGroup {
+  id     String      @id @default(uuid())
+  examId String?
+  type   PassageType @default(SINGLE)
+
+  exam      Exam?      @relation(fields: [examId], references: [id], onDelete: SetNull)
+  passages  Passage[]
+  questions Question[]
+
+  @@index([examId])
+}
+
+model Passage {
+  id             String    @id @default(uuid())
+  passageGroupId String
+  content        String?
+  transcript     String?   // Lời thoại (Part 3,4) hoặc Bản dịch (Part 6,7)
+  order          Int
+  mediaUrl       String?
+  mediaType      MediaType @default(TEXT)
+
+  passageGroup PassageGroup @relation(fields: [passageGroupId], references: [id], onDelete: Cascade)
+
+  @@index([passageGroupId])
+}
+
+model Question {
+  id             String     @id @default(uuid())
+  examId         String?
+  passageGroupId String?
+  grammarTopicId String?
+  part           ExamPart?
+  order          Int        @default(0)
+  questionText   String?
+  difficulty     Difficulty @default(MEDIUM)
+  explanation    String?
+  metadata       Json?
+  isDeleted      Boolean    @default(false)
+  deletedAt      DateTime?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  exam         Exam?         @relation(fields: [examId], references: [id], onDelete: SetNull)
+  passageGroup PassageGroup? @relation(fields: [passageGroupId], references: [id], onDelete: SetNull)
+  grammarTopic GrammarTopic? @relation(fields: [grammarTopicId], references: [id], onDelete: SetNull)
+  options      Option[]
+  resultDetails ResultDetail[]
+  notes         QuestionNote[]
+  aiExplanation AiQuestionExplanation?
+
+  @@index([examId, order])
+  @@index([grammarTopicId])
+  @@index([isDeleted])
+}
+
+model Option {
+  id         String      @id @default(uuid())
+  questionId String
+  label      OptionLabel
+  text       String
+  isCorrect  Boolean     @default(false)
+
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@index([questionId])
+}
+
+enum PassageType {
+  SINGLE
+  DOUBLE
+  TRIPLE
+}
+
+enum MediaType {
+  TEXT
+  AUDIO
+  IMAGE
+  VIDEO
+}
+
+enum OptionLabel {
+  A
+  B
+  C
+  D
+}
+
+// ─────────────────────────────────────────
+// Result
+// ─────────────────────────────────────────
+model Result {
+  id               String   @id @default(uuid())
+  userId           String
+  examId           String?
+  grammarTopicId   String?
+  status           String   @default("IN_PROGRESS") // IN_PROGRESS, COMPLETED, ABANDONED
+  score            Int      @default(0)
+  totalQ           Int      @default(0)
+  correctQ         Int      @default(0)
+  timeTaken        Int      @default(0)        // giây
+  startedAt        DateTime?                   // validate server-side
+  submittedAt      DateTime?
+  listeningScore   Int?                        // 0-495
+  readingScore     Int?                        // 0-495
+  listeningCorrect Int?
+  readingCorrect   Int?
+  tabSwitchCount   Int      @default(0)        // anti-cheat
+  isFullTest       Boolean  @default(false)
+  partBreakdown    Json?    // { PART1: { total: 6, correct: 5 }, ... }
+  weakPoints       Json?    // ["PART4", "PART7"]
+  xpEarned         Int      @default(0)
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exam         Exam?         @relation(fields: [examId], references: [id], onDelete: SetNull)
+  grammarTopic GrammarTopic? @relation(fields: [grammarTopicId], references: [id], onDelete: SetNull)
+  resultDetails ResultDetail[]
+
+  @@index([userId, submittedAt])
+  @@index([userId, status])
+  @@index([userId, isFullTest, submittedAt])
+  @@index([examId])
+}
+
+model ResultDetail {
+  id               String  @id @default(uuid())
+  resultId         String
+  questionId       String
+  selectedLabel    OptionLabel?
+  isCorrect        Boolean @default(false)
+  timeTakenSeconds Int?
+
+  result   Result   @relation(fields: [resultId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([resultId, questionId])
+  @@index([resultId])
+}
+
+model AdminLog {
+  id         String   @id @default(uuid())
+  adminId    String
+  action     String   // "user.ban", "subscription.approve"...
+  targetType String   // "User", "Subscription", "Exam"...
+  targetId   String?
+  detail     Json?    // snapshot trước/sau
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  admin User @relation(fields: [adminId], references: [id])
+
+  @@index([adminId])
+  @@index([action, createdAt])
+  @@index([targetType, targetId])
+}
+
+model QuestionNote {
+  id         String   @id @default(uuid())
+  userId     String
+  questionId String
+  content    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, questionId])
+  @@index([userId])
+  @@index([questionId])
+}
+
+// ─────────────────────────────────────────
+// VOCAB & FLASHCARD SM-2
+// ─────────────────────────────────────────
+
+model Vocab {
+  id               String   @id @default(uuid())
+  userId           String?
+  word             String
+  meaning          String
+  phonetic         String?
+  audioUrl         String?
+  example          String?
+  toeicTopic       String?  // Business | Office | Travel | Health | Finance | General
+  collocations     String?
+  sourceExamId     String?
+  sourceQuestionId String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user       User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  schedule   VocabSchedule?
+  reviewLogs VocabReviewLog[]
+
+  @@unique([userId, word])
+  @@index([userId, toeicTopic])
+}
+
+model VocabSchedule {
+  vocabId      String      @id
+  ef           Float       @default(2.5)   // Ease Factor, min 1.3
+  interval     Int         @default(1)     // ngày
+  repetitions  Int         @default(0)
+  nextReviewAt DateTime    @default(now())
+  lastReviewAt DateTime?
+  status       VocabStatus @default(NEW)
+
+  vocab Vocab @relation(fields: [vocabId], references: [id], onDelete: Cascade)
+
+  @@index([nextReviewAt, status])
+}
+
+model VocabStudySession {
+  id             String    @id @default(uuid())
+  userId         String
+  startedAt      DateTime  @default(now())
+  lastActiveAt   DateTime  @default(now())
+  completedAt    DateTime?
+  totalCards     Int       @default(0)
+  completedCards Int       @default(0)
+  currentIndex   Int       @default(0)
+  sessionData    Json?     // { vocabIds: string[], reviewedVocabIds: string[] }
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, completedAt])
+}
+
+model VocabReviewLog {
+  id             String   @id @default(uuid())
+  vocabId        String
+  userId         String
+  rating         Int      // 1, 3, 4, 5 (mapped from 4-button UI)
+  efBefore       Float
+  efAfter        Float
+  intervalBefore Int
+  intervalAfter  Int
+  reviewedAt     DateTime @default(now())
+
+  vocab Vocab @relation(fields: [vocabId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([vocabId, reviewedAt])
+  @@index([userId, reviewedAt])
+}
+
+enum VocabStatus {
+  NEW
+  LEARNING
+  REVIEW
+  MASTERED
+}
+
+// ─────────────────────────────────────────
+// SUBSCRIPTION
+// ─────────────────────────────────────────
+
+model Subscription {
+  id              String             @id @default(uuid())
+  userId          String
+  plan            String             // VIP_1_MONTH | VIP_3_MONTH | VIP_6_MONTH
+  status          SubscriptionStatus @default(PENDING)
+  proofUrl        String?
+  proofHash       String?            // SHA256 — detect reuse
+  bankAccountNo   String?
+  transactionRef  String?
+  amount          Int?               // VND (integer)
+  riskScore       Int                @default(0)    // 0-100
+  riskFlags       Json?              // ["DUPLICATE_PROOF", "SUSPICIOUS_IP"]
+  approvedBy      String?
+  approvedAt      DateTime?
+  rejectedBy      String?
+  rejectedAt      DateTime?
+  rejectionReason String?
+  ipAddress       String?
+  startsAt        DateTime?
+  expiresAt       DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  user     User  @relation("SubscriptionOwner", fields: [userId], references: [id], onDelete: Cascade)
+  approver User? @relation("SubscriptionApprover", fields: [approvedBy], references: [id])
+  rejecter User? @relation("SubscriptionRejecter", fields: [rejectedBy], references: [id])
+
+  @@index([userId])
+  @@index([status, createdAt])
+  @@index([proofHash])
+  @@index([userId, status])
+}
+
+model BannedBankAccount {
+  id            String   @id @default(uuid())
+  bankAccountNo String   @unique
+  reason        String?
+  bannedBy      String
+  bannedAt      DateTime @default(now())
+
+  admin User @relation(fields: [bannedBy], references: [id])
+}
+
+enum SubscriptionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REVOKED
+}
+
+// ─────────────────────────────────────────
+// AI INTEGRATION
+// ─────────────────────────────────────────
+
+model AiQuestionExplanation {
+  id           String   @id @default(uuid())
+  questionId   String   @unique
+  content      String   @db.Text
+  model        String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  question     Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 }

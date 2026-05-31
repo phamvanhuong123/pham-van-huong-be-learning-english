@@ -1,0 +1,95 @@
+import { Request, Response, NextFunction } from 'express';
+import { verifyToken } from '@/utils/jwtTokenHelper';
+import { prisma } from '@/config/prisma';
+import ApiError from '@/utils/ApiError';
+import { StatusCodes } from 'http-status-codes';
+import { env } from '@/config/environment';
+
+export const authenticate = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    // 1. Extract token
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      throw new ApiError('Không có token xác thực', StatusCodes.UNAUTHORIZED);
+    }
+    const token = authHeader.split(' ')[1];
+
+    // 2. Verify JWT
+    const decoded = verifyToken(token, env.ACCESS_TOKEN_SECRET_SIGNATURE!) as any;
+
+    // 3. Verify Session from cookies
+    const sessionId = req.cookies?.sessionId;
+    if (sessionId) {
+      const activeSession = await prisma.userSession.findUnique({
+        where: { id: sessionId }
+      });
+      if (!activeSession || !activeSession.isActive) {
+        throw new ApiError('Phiên đăng nhập đã hết hạn hoặc bị đăng xuất từ nơi khác', StatusCodes.UNAUTHORIZED);
+      }
+    }
+
+    // 4. Query DB — check isBanned + load permissions
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      select: {
+        id: true,
+        email: true,
+        isBanned: true,
+        isDeleted: true,
+        isSuperAdmin: true,
+        userRoles: {
+          where: {
+            OR: [
+              { expiresAt: null },
+              { expiresAt: { gt: new Date() } }
+            ]
+          },
+          include: {
+            role: {
+              include: {
+                rolePermissions: {
+                  include: { permission: true }
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!user) throw new ApiError('Người dùng không tồn tại', StatusCodes.UNAUTHORIZED);
+    if (user.isBanned) throw new ApiError('Tài khoản đã bị khóa', StatusCodes.FORBIDDEN);
+    if (user.isDeleted) throw new ApiError('Tài khoản đã bị xóa', StatusCodes.FORBIDDEN);
+
+    // 5. Flatten permissions
+    const permissions = user.userRoles.flatMap(ur =>
+      ur.role.rolePermissions.map(rp => rp.permission.code)
+    );
+
+    // 6. Attach req.user
+    req.user = {
+      id: user.id,
+      email: user.email,
+      isSuperAdmin: user.isSuperAdmin,
+      permissions
+    };
+
+    // 7. Update lastActiveAt async (không block request)
+    if (sessionId) {
+      prisma.userSession.update({
+        where: { id: sessionId },
+        data: { lastActiveAt: new Date() }
+      }).catch(() => {}); // ignore error, non-critical
+    }
+
+    next();
+  } catch (error: any) {
+    if (error.name === 'TokenExpiredError') {
+      next(new ApiError('Token đã hết hạn', StatusCodes.GONE));
+    } else if (error.name === 'JsonWebTokenError') {
+      next(new ApiError('Token không hợp lệ', StatusCodes.UNAUTHORIZED));
+    } else {
+      next(error);
+    }
+  }
+};

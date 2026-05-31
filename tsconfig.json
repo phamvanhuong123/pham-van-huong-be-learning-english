@@ -12,5 +12,8 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src/**/*", "generated/**/*"]
+  "include": ["src/**/*", "generated/**/*"],
+  "ts-node": {
+    "files": true
+  }
 }
