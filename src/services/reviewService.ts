@@ -19,75 +19,6 @@ const getReviewDetails = async (resultId: string, userId: string) => {
     throw new ApiError("Bài thi chưa hoàn thành, không thể xem lại", StatusCodes.BAD_REQUEST);
   }
 
-  // 2. Fetch Exam with all questions, options, and passage groups (including childExams for FULL test)
-  const exam = await prisma.exam.findUnique({
-    where: { id: result.examId! },
-    include: {
-      childExams: {
-        include: {
-          passageGroups: {
-            include: {
-              passages: {
-                orderBy: { order: "asc" }
-              },
-              questions: {
-                where: { isDeleted: false },
-                orderBy: { order: "asc" },
-                include: {
-                  options: true,
-                  notes: {
-                    where: { userId } // fetch user's note for this question
-                  }
-                }
-              }
-            }
-          },
-          questions: {
-            where: { isDeleted: false, passageGroupId: null },
-            orderBy: { order: "asc" },
-            include: {
-              options: true,
-              notes: {
-                where: { userId }
-              }
-            }
-          }
-        }
-      },
-      passageGroups: {
-        include: {
-          passages: {
-            orderBy: { order: "asc" }
-          },
-          questions: {
-            where: { isDeleted: false },
-            orderBy: { order: "asc" },
-            include: {
-              options: true,
-              notes: {
-                where: { userId } // fetch user's note for this question
-              }
-            }
-          }
-        }
-      },
-      questions: {
-        where: { isDeleted: false, passageGroupId: null },
-        orderBy: { order: "asc" },
-        include: {
-          options: true,
-          notes: {
-            where: { userId }
-          }
-        }
-      }
-    }
-  });
-
-  if (!exam) {
-    throw new ApiError("Không tìm thấy đề thi", StatusCodes.NOT_FOUND);
-  }
-
   // 3. Map answers to questions
   const answerMap = new Map(result.resultDetails.map(rd => [rd.questionId, rd]));
 
@@ -129,22 +60,102 @@ const getReviewDetails = async (resultId: string, userId: string) => {
     }));
   };
 
-  const mappedPassageGroups = mapPassageGroups(exam.passageGroups, exam.part);
-  const mappedStandaloneQuestions = exam.questions.map((q: any) => mapQuestionWithReview(q, exam.part));
+  let examTitle = "Bài tập";
+  let examPart = null;
+  let examDuration = 0;
+  let mappedPassageGroups: any[] = [];
+  let mappedStandaloneQuestions: any[] = [];
 
-  if (exam.childExams && exam.childExams.length > 0) {
-    exam.childExams.forEach((child: any) => {
-      mappedPassageGroups.push(...mapPassageGroups(child.passageGroups, child.part));
-      mappedStandaloneQuestions.push(...child.questions.map((q: any) => mapQuestionWithReview(q, child.part)));
+  if (result.examId) {
+    // Fetch Exam with all questions, options, and passage groups
+    const exam = await prisma.exam.findUnique({
+      where: { id: result.examId },
+      include: {
+        childExams: {
+          include: {
+            passageGroups: {
+              include: {
+                passages: { orderBy: { order: "asc" } },
+                questions: {
+                  where: { isDeleted: false },
+                  orderBy: { order: "asc" },
+                  include: { options: true, notes: { where: { userId } } }
+                }
+              }
+            },
+            questions: {
+              where: { isDeleted: false, passageGroupId: null },
+              orderBy: { order: "asc" },
+              include: { options: true, notes: { where: { userId } } }
+            }
+          }
+        },
+        passageGroups: {
+          include: {
+            passages: { orderBy: { order: "asc" } },
+            questions: {
+              where: { isDeleted: false },
+              orderBy: { order: "asc" },
+              include: { options: true, notes: { where: { userId } } }
+            }
+          }
+        },
+        questions: {
+          where: { isDeleted: false, passageGroupId: null },
+          orderBy: { order: "asc" },
+          include: { options: true, notes: { where: { userId } } }
+        }
+      }
     });
+
+    if (!exam) {
+      throw new ApiError("Không tìm thấy đề thi", StatusCodes.NOT_FOUND);
+    }
+
+    examTitle = exam.title;
+    examPart = exam.part as any;
+    examDuration = exam.duration;
+
+    mappedPassageGroups = mapPassageGroups(exam.passageGroups, exam.part);
+    mappedStandaloneQuestions = exam.questions.map((q: any) => mapQuestionWithReview(q, exam.part));
+
+    if (exam.childExams && exam.childExams.length > 0) {
+      exam.childExams.forEach((child: any) => {
+        mappedPassageGroups.push(...mapPassageGroups(child.passageGroups, child.part));
+        mappedStandaloneQuestions.push(...child.questions.map((q: any) => mapQuestionWithReview(q, child.part)));
+      });
+    }
+  } else if (result.grammarTopicId) {
+    // Fetch Grammar Topic
+    const topic = await prisma.grammarTopic.findUnique({
+      where: { id: result.grammarTopicId },
+      include: {
+        questions: {
+          where: { isDeleted: false },
+          orderBy: { order: "asc" },
+          include: {
+            options: true,
+            notes: { where: { userId } }
+          }
+        }
+      }
+    });
+
+    if (!topic) {
+      throw new ApiError("Không tìm thấy chủ đề ngữ pháp", StatusCodes.NOT_FOUND);
+    }
+
+    examTitle = topic.name;
+    mappedStandaloneQuestions = topic.questions.map((q: any) => mapQuestionWithReview(q, "GRAMMAR"));
+  } else {
+    throw new ApiError("Kết quả không hợp lệ", StatusCodes.BAD_REQUEST);
   }
 
-
   return {
-    id: exam.id,
-    title: exam.title,
-    part: exam.part,
-    duration: exam.duration,
+    id: result.examId || result.grammarTopicId || "unknown",
+    title: examTitle,
+    part: examPart,
+    duration: examDuration,
     resultSummary: {
       score: result.score,
       totalQ: result.totalQ,

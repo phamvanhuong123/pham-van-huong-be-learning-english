@@ -18,7 +18,8 @@ const getResultHistory = async (userId: string, query: any) => {
     prisma.result.findMany({
       where: whereClause,
       include: {
-        exam: { select: EXAM_SELECT_FIELDS }
+        exam: { select: EXAM_SELECT_FIELDS },
+        grammarTopic: { select: { id: true, name: true, slug: true } }
       },
       orderBy: { submittedAt: "desc" },
       skip,
@@ -42,7 +43,8 @@ const getResultDetail = async (resultId: string, userId: string) => {
   const result = await prisma.result.findFirst({
     where: { id: resultId, userId },
     include: {
-      exam: { select: EXAM_SELECT_FIELDS }
+      exam: { select: EXAM_SELECT_FIELDS },
+      grammarTopic: { select: { id: true, name: true, slug: true } }
     }
   });
 

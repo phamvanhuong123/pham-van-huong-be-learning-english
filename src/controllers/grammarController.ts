@@ -2,10 +2,16 @@ import { Request, Response, NextFunction } from 'express';
 import { grammarService } from '@/services/grammarService';
 import { grammarPracticeService } from '@/services/grammarPracticeService';
 import { StatusCodes } from 'http-status-codes';
-import { createGrammarTopicSchema, updateGrammarTopicSchema, queryGrammarTopicSchema, submitAnswerSchema } from '@/validators/grammarValidator';
+import {
+  createGrammarTopicSchema,
+  updateGrammarTopicSchema,
+  queryGrammarTopicSchema,
+  submitAnswerSchema,
+  createGrammarQuestionSchema,
+  updateGrammarQuestionSchema
+} from '@/validators/grammarValidator';
 
 export const grammarController = {
-  // ─── ADMIN ENDPOINTS ──────────────────────────────────────────────
   getAdminTopics: async (req: Request, res: Response, next: NextFunction) => {
     try {
       const query = queryGrammarTopicSchema.parse(req.query);
@@ -54,6 +60,45 @@ export const grammarController = {
     }
   },
 
+  // ─── ADMIN QUESTION ENDPOINTS ─────────────────────────────────────
+  getTopicQuestions: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const result = await grammarService.getQuestionsByTopic(req.params.id as string);
+      res.status(StatusCodes.OK).json({ data: result });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  createTopicQuestion: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const data = createGrammarQuestionSchema.parse(req.body);
+      const question = await grammarService.createQuestion(req.params.id as string, data);
+      res.status(StatusCodes.CREATED).json({ data: question });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  updateTopicQuestion: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const data = updateGrammarQuestionSchema.parse(req.body);
+      const question = await grammarService.updateQuestion(req.params.questionId as string, data);
+      res.status(StatusCodes.OK).json({ data: question });
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  deleteTopicQuestion: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      await grammarService.deleteQuestion(req.params.questionId as string);
+      res.status(StatusCodes.OK).json({ message: 'Xóa câu hỏi thành công' });
+    } catch (error) {
+      next(error);
+    }
+  },
+
   // ─── CLIENT (PRACTICE) ENDPOINTS ──────────────────────────────────
   getClientTopics: async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -92,3 +137,4 @@ export const grammarController = {
     }
   }
 };
+

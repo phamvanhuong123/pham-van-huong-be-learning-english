@@ -61,7 +61,6 @@ route.post('/vocab/import', authorize('system.manage'), uploadCsv, adminVocabCon
 route.put('/vocab/:id', authorize('system.manage'), adminVocabController.updateSystemVocab);
 route.delete('/vocab/:id', authorize('system.manage'), adminVocabController.deleteSystemVocab);
 
-// ─── Subscription ────────────────────────────────────────────────
 import { subscriptionController } from '@/controllers/subscriptionController';
 route.get('/subscriptions', authorize('system.manage'), subscriptionController.getAdminSubscriptionList);
 route.post('/subscriptions/:id/approve', authorize('system.manage'), subscriptionController.approveSubscription);
@@ -74,12 +73,15 @@ route.get('/subscriptions/banned-accounts', authorize('system.manage'), subscrip
 route.post('/subscriptions/banned-accounts', authorize('system.manage'), subscriptionController.banBankAccount);
 route.delete('/subscriptions/banned-accounts/:id', authorize('system.manage'), subscriptionController.unbanBankAccount);
 
-// ─── Grammar ───────────────────────────────────────────────────
 import { grammarController } from '@/controllers/grammarController';
 route.get('/grammar', authorize('system.manage'), grammarController.getAdminTopics);
 route.post('/grammar', authorize('system.manage'), grammarController.createTopic);
+route.put('/grammar/questions/:questionId', authorize('system.manage'), grammarController.updateTopicQuestion);
+route.delete('/grammar/questions/:questionId', authorize('system.manage'), grammarController.deleteTopicQuestion);
 route.get('/grammar/:id', authorize('system.manage'), grammarController.getAdminTopicById);
 route.put('/grammar/:id', authorize('system.manage'), grammarController.updateTopic);
 route.delete('/grammar/:id', authorize('system.manage'), grammarController.deleteTopic);
+route.get('/grammar/:id/questions', authorize('system.manage'), grammarController.getTopicQuestions);
+route.post('/grammar/:id/questions', authorize('system.manage'), grammarController.createTopicQuestion);
 
 export default route;

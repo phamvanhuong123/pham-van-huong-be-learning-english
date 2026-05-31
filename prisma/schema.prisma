@@ -226,6 +226,7 @@ model GrammarTopic {
   description String?
 
   questions Question[]
+  results   Result[]
 }
 
 model PassageGroup {
@@ -342,6 +343,7 @@ model Result {
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   exam         Exam?         @relation(fields: [examId], references: [id], onDelete: SetNull)
+  grammarTopic GrammarTopic? @relation(fields: [grammarTopicId], references: [id], onDelete: SetNull)
   resultDetails ResultDetail[]
 
   @@index([userId, submittedAt])

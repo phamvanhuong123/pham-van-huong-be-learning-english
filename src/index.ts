@@ -29,6 +29,15 @@ const START_SERVER = () => {
     httpServer.close();
     prisma.$disconnect().then(() => console.log("Đã ngắn kết nối database"));
   });
+
+  process.once('SIGUSR2', () => {
+    console.log('Nodemon restart detected. Closing server gracefully...');
+    httpServer.close(() => {
+      prisma.$disconnect().then(() => {
+        process.kill(process.pid, 'SIGUSR2');
+      });
+    });
+  });
 };
 
 (async () => {

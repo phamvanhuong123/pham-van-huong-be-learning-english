@@ -171,6 +171,7 @@ const getQuestions = async (params: {
 
   const where: any = {
     isDeleted: false,
+    examId: { not: null },
   };
 
   if (params.search) {
