@@ -14,4 +14,5 @@ export const env = {
   CLOUDINARY_API_SECRET: process.env.CLOUDINARY_API_SECRET,
   FRONTEND_URL: process.env.FRONTEND_URL,
   GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+  PORT: process.env.PORT
 };

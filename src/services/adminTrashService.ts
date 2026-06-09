@@ -9,7 +9,7 @@ export const adminTrashService = {
     const limit = parseInt(query.limit) || 20;
     const skip = (page - 1) * limit;
 
-    const type = query.type || 'exam'; // 'exam' or 'question'
+    const type = query.type || 'exam';
 
     let items: any[] = [];
     let total = 0;

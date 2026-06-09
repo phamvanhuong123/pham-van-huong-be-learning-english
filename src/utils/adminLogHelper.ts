@@ -9,11 +9,7 @@ export interface CreateAdminLogParams {
   ipAddress?: string;
 }
 
-/**
- * Helper để tạo AdminLog, truyền thêm instance prisma nếu đang trong transaction
- * @param prismaInstance - Instance prisma (hoặc transaction instance)
- * @param params - Dữ liệu log
- */
+
 export const createAdminLog = async (
   prismaInstance: any = prisma,
   params: CreateAdminLogParams

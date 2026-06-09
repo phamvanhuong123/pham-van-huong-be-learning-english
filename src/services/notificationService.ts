@@ -8,7 +8,6 @@ export const notificationService = {
     body: string,
     type: 'SYSTEM' | 'SUBSCRIPTION' | 'EXAM_REMINDER' | 'VOCAB_REMINDER' | 'STREAK_REMINDER' | 'AI_COMPLETE' = 'SYSTEM'
   ) => {
-    // Lưu vào DB
     const notification = await prisma.notification.create({
       data: {
         userId,
@@ -18,7 +17,7 @@ export const notificationService = {
       },
     });
 
-    // Bắn socket realtime
+
     emitToUser(userId, 'new_notification', {
       id: notification.id,
       title: notification.title,

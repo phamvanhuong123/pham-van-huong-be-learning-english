@@ -144,5 +144,14 @@ export const vocabController = {
     } catch (error) {
       next(error);
     }
+  },
+
+  getVocabTopics: async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const topics = await vocabService.getTopics(req.user!.id);
+      res.status(StatusCodes.OK).json({ data: topics });
+    } catch (error) {
+      next(error);
+    }
   }
 };

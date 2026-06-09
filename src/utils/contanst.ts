@@ -10,7 +10,7 @@ export const EXAM_SELECT_FIELDS = {
   parentExamId: true
 };
 
-// ─── Fields trả về cho Option ─────────────────────────────────────
+
 export const OPTION_SELECT_FIELDS = {
   id: true,
   label: true,
@@ -18,7 +18,7 @@ export const OPTION_SELECT_FIELDS = {
   isCorrect: true,
 };
 
-// ─── Fields trả về cho câu hỏi đơn ───────────────────────────────
+
 export const QUESTION_SELECT_FIELDS = {
   id: true,
   examId: true,
@@ -33,7 +33,6 @@ export const QUESTION_SELECT_FIELDS = {
   options: { select: OPTION_SELECT_FIELDS, orderBy: { label: "asc" as const } },
 };
 
-// ─── Fields trả về cho Passage ───────────────────────────────────
 export const PASSAGE_SELECT_FIELDS = {
   id: true,
   content: true,
@@ -43,7 +42,6 @@ export const PASSAGE_SELECT_FIELDS = {
   order: true,
 };
 
-// ─── Fields trả về cho PassageGroup ─────────────────────────────
 export const PASSAGE_GROUP_SELECT_FIELDS = {
   id: true,
   examId: true,
@@ -58,4 +56,3 @@ export const PASSAGE_GROUP_SELECT_FIELDS = {
     orderBy: { order: "asc" as const },
   },
 };
-

@@ -6,7 +6,6 @@ const route = Router();
 
 route.use(authenticate);
 
-// ─── QUAN TRỌNG: specific routes TRƯỚC wildcard routes ───────
 route.get("/history", resultController.getHistory);
 route.get("/:id", resultController.getResultDetail);
 route.get("/:id/review", resultController.getReview);

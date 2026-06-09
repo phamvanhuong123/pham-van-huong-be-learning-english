@@ -3,15 +3,15 @@ import { prisma } from '@/config/prisma';
 import { createAdminLog } from '@/utils/adminLogHelper';
 
 export const initCronJobs = () => {
-  // Chạy vào 2:00 AM mỗi ngày
+
   cron.schedule('0 2 * * *', async () => {
     try {
       console.log('Bắt đầu dọn dẹp thùng rác (auto-purge)...');
-      
+
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      // Xoá vĩnh viễn exams quá 30 ngày
+
       const { count: examCount } = await prisma.exam.deleteMany({
         where: {
           isDeleted: true,
@@ -19,7 +19,6 @@ export const initCronJobs = () => {
         }
       });
 
-      // Xoá vĩnh viễn questions quá 30 ngày
       const { count: questionCount } = await prisma.question.deleteMany({
         where: {
           isDeleted: true,

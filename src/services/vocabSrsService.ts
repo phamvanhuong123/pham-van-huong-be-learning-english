@@ -1,18 +1,16 @@
 import { prisma } from '@/config/prisma';
 import ApiError from '@/utils/ApiError';
 import { StatusCodes } from 'http-status-codes';
-import { 
-  VocabStatus, 
-  Rating, 
-  calculateNextReview, 
-  previewNextIntervals 
+import {
+  VocabStatus,
+  Rating,
+  calculateNextReview,
+  previewNextIntervals
 } from '@/utils/srsAlgorithm';
 
 export const vocabSrsService = {
   getDashboardStats: async (userId: string) => {
     const now = new Date();
-    
-    // Sử dụng Prisma findMany để tránh lỗi ép kiểu ENUM của Postgres Raw SQL
     const schedules = await prisma.vocabSchedule.findMany({
       where: { vocab: { userId } },
       include: { vocab: { select: { toeicTopic: true } } }
@@ -75,8 +73,6 @@ export const vocabSrsService = {
     }
 
     const sessionCards = [...learningCards, ...reviewCards, ...newCards];
-
-    // Gắn luôn thời gian dự đoán (previewIntervals) vào thẻ từ tầng Service để Controller không phải xử lý
     return sessionCards.map(card => {
       if (!card.schedule) return card;
       const preview = previewNextIntervals({

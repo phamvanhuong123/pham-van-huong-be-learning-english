@@ -2,7 +2,6 @@ import { BuildExplanationPromptParams, BuildFollowUpPromptParams } from "@/types
 
 const sanitizeText = (text?: string, maxLength: number = 3000): string => {
   if (!text) return "";
-  // Basic sanitization: trim and limit length to prevent prompt injection / payload too large
   return text.trim().substring(0, maxLength);
 };
 
@@ -27,9 +26,9 @@ export const buildToeicExplanationPrompt = ({
   return `Bạn là gia sư TOEIC. Yêu cầu: TRẢ LỜI CỰC KỲ NGẮN GỌN, ĐÚNG TRỌNG TÂM, KHÔNG DÀI DÒNG.
 
 ${partText}${passageContextText}${questionContextText}${optionsContextText}${correctLabelText}Trình bày theo format markdown sau một cách ngắn gọn nhất:
-- ✅ **Tại sao chọn ${correctLabel || "đáp án này"}**: (Giải thích lý do đúng trong 1-2 câu).
-- ❌ **Các đáp án khác**: (Chỉ ra lỗi sai ngắn gọn, không giải thích dông dài).
-- 💡 **Từ vựng/Ngữ pháp cốt lõi**: (Chỉ liệt kê nếu thực sự cần thiết để hiểu câu này).
+-  **Tại sao chọn ${correctLabel || "đáp án này"}**: (Giải thích lý do đúng trong 1-2 câu).
+-  **Các đáp án khác**: (Chỉ ra lỗi sai ngắn gọn, không giải thích dông dài).
+-  **Từ vựng/Ngữ pháp cốt lõi**: (Chỉ liệt kê nếu thực sự cần thiết để hiểu câu này).
 
 Tuyệt đối không chào hỏi, mở bài hay kết bài. Không khuyên bảo hay đưa thêm các tips dài dòng.`;
 };

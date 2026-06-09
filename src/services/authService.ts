@@ -75,7 +75,7 @@ const login = async (data: LoginPayload, ipAddress?: string, userAgent?: string)
       userId: exsistUser.id,
       ipAddress,
       deviceInfo: userAgent,
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 1 day
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
     }
   });
 

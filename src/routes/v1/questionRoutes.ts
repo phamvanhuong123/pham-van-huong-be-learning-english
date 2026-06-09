@@ -7,12 +7,8 @@ import { authorize } from "@/middlewares/authorize";
 
 const route = Router();
 
-// ─── Upload media ─────────────────────────────────────────────────
-// POST /question/upload – upload 1 file, nhận về URL để dùng khi tạo câu hỏi
 route.post("/upload", authenticate, authorize('question.manage'), uploadSingleMedia, questionController.uploadMedia);
 
-// ─── Câu hỏi đơn – Part 5 ────────────────────────────────────────
-// POST /question/standalone
 route.post(
   "/standalone",
   authenticate,
@@ -74,4 +70,4 @@ route.patch("/:id", authenticate, authorize('question.manage'), questionValidato
 // DELETE /question/:id
 route.delete("/:id", authenticate, authorize('question.manage'), questionController.deleteQuestion);
 
-export default route;
+export default route;

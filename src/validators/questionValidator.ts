@@ -11,9 +11,9 @@ const optionSchema = z.object({
 });
 
 const passageSchema = z.object({
-  content: z.string().optional(),
-  transcript: z.string().optional(),
-  mediaUrl: z.string().url("mediaUrl phải là URL hợp lệ").optional(),
+  content: z.string().nullable().optional(),
+  transcript: z.string().nullable().optional(),
+  mediaUrl: z.string().url("mediaUrl phải là URL hợp lệ").nullable().optional(),
   mediaType: z.enum(["TEXT", "AUDIO", "IMAGE", "VIDEO"], { error: "mediaType không hợp lệ" }),
   order: z.number({ error: "order là bắt buộc" }).int().min(0),
 });
@@ -165,7 +165,7 @@ const updatePassageGroup = async (req: Request, res: Response, next: NextFunctio
   const schema = z.object({
     passageType: z.enum(["SINGLE", "DOUBLE", "TRIPLE"]).optional(),
     passages: z.array(passageSchema).optional(),
-    questions: z.array(questionPayloadSchema).optional(),
+    questions: z.array(questionPayloadSchema.extend({ id: z.string().uuid().optional() })).optional(),
   });
 
   try {

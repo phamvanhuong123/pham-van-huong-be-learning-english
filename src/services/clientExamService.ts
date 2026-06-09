@@ -5,7 +5,6 @@ import ApiError from "@/utils/ApiError";
 import { StatusCodes } from "http-status-codes";
 
 export const clientExamService = {
-  // Lấy danh sách đề thi (đã publish) có phân trang
   getPublishedExams: async (query: any) => {
     const { part, difficulty, search, page = 1, limit = 10 } = query;
     const whereClause: any = { isPublished: true, isDeleted: false };
@@ -48,7 +47,6 @@ export const clientExamService = {
     };
   },
 
-  // Lấy chi tiết đề thi (Lọc bỏ đáp án)
   getExamDetailsForClient: async (examId: string) => {
     const exam = await prisma.exam.findUnique({
       where: { id: examId, isPublished: true, isDeleted: false },
@@ -106,11 +104,10 @@ export const clientExamService = {
 
     if (!exam) return null;
 
-    // Lọc bỏ đáp án và transcript (Anti-Cheat)
+
     const filterQuestions = (questions: any[], fallbackPart: string) => {
       return questions.map(q => {
         const questionPart = q.part || fallbackPart;
-        // Part 1 ẩn question text
         let questionText = q.questionText;
         if (['PART1'].includes(questionPart)) {
           questionText = null;

@@ -96,10 +96,7 @@ export const grammarService = {
       throw new ApiError('Chủ đề ngữ pháp không tồn tại', StatusCodes.NOT_FOUND);
     }
 
-    // Prisma relation onDelete is SetNull for questions -> grammarTopicId
-    // We should delete the topic, and its questions will have grammarTopicId = null, or we can soft-delete questions
-    // Since it's a grammar topic, usually we want to delete questions that belong exclusively to it. 
-    // But schema says `grammarTopicId String?` and `onDelete: SetNull`. Let's just delete the topic.
+
     await prisma.grammarTopic.delete({
       where: { id }
     });

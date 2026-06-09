@@ -18,11 +18,8 @@ export const subscriptionService = {
         throw new ApiError('Số tài khoản này đã bị khóa do vi phạm', StatusCodes.FORBIDDEN);
       }
     }
-
-    // 1. Calculate proofHash
     const proofHash = hashHelper.sha256(fileBuffer);
 
-    // 2. Calculate risk score
     const risk = await subscriptionRiskService.calculateRiskScore(
       userId,
       proofHash,
@@ -30,11 +27,9 @@ export const subscriptionService = {
       data.ipAddress
     );
 
-    // 3. Upload image to Cloudinary
-    // @ts-ignore
+
     const uploadResult = await uploadToCloudinary(fileBuffer, 'toeic/images', 'image');
 
-    // 4. Create record
     const subscription = await prisma.subscription.create({
       data: {
         userId,
@@ -112,20 +107,17 @@ export const subscriptionService = {
       throw new ApiError('Chỉ có thể duyệt yêu cầu ở trạng thái PENDING', StatusCodes.BAD_REQUEST);
     }
 
-    // Calculate expiration
+
     let months = 1;
     if (subscription.plan === 'VIP_3_MONTH') months = 3;
     if (subscription.plan === 'VIP_6_MONTH') months = 6;
 
     const now = new Date();
-    // If user is already VIP, extend from current expiry. Else from now.
     const currentExpiry = subscription.user.vipExpiresAt;
     const startsAt = (currentExpiry && currentExpiry > now) ? currentExpiry : now;
 
     const expiresAt = new Date(startsAt);
     expiresAt.setMonth(expiresAt.getMonth() + months);
-
-    // Transaction
     const updated = await prisma.$transaction(async (tx) => {
       const sub = await tx.subscription.update({
         where: { id: subscriptionId },
@@ -155,7 +147,7 @@ export const subscriptionService = {
       ipAddress
     });
 
-    // Thông báo realtime cho học viên
+
     await notificationService.createNotification(
       subscription.userId,
       'Nâng cấp VIP thành công!',
@@ -163,7 +155,6 @@ export const subscriptionService = {
       'SUBSCRIPTION'
     );
 
-    // Cập nhật trạng thái VIP trực tiếp qua socket để Frontend cập nhật store
     emitToUser(subscription.userId, 'vip_status_updated', { isVip: true });
 
     return updated;
