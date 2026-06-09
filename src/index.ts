@@ -10,7 +10,7 @@ import { initSocket } from '@/config/socket';
 import { initCronJobs } from '@/config/cron';
 import { corsOptions } from './config/cors';
 const START_SERVER = () => {
-  const port = 5000;
+  const port = process.env.PORT || 5000;
   const app = express();
   app.use(cors(corsOptions))
   app.use(cookieParser())
