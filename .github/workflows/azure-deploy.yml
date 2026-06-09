@@ -18,6 +18,8 @@ jobs:
           node-version: '24.x'
 
       - name: npm install, build
+        env:
+          DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
         run: |
           npm install
           npx prisma generate
