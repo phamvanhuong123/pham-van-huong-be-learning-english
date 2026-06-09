@@ -1,10 +1,10 @@
 import { prisma } from './src/config/prisma';
 
 async function main() {
-  const daysToSkip = 14;
+  const daysToSkip = 1;
   const skipMs = daysToSkip * 24 * 60 * 60 * 1000;
 
-  console.log(` Đang tua nhanh thời gian về tương lai ${daysToSkip} ngày...`);
+  console.log(` bỏ qya\\ua ${daysToSkip} ngày...`);
 
   const schedules = await prisma.vocabSchedule.findMany();
   let updatedCount = 0;

@@ -8,10 +8,11 @@ import cors from 'cors';
 import { createServer } from 'http';
 import { initSocket } from '@/config/socket';
 import { initCronJobs } from '@/config/cron';
+import { corsOptions } from './config/cors';
 const START_SERVER = () => {
   const port = 5000;
   const app = express();
-  app.use(cors({ credentials: true, origin: ["http://localhost:5173"] }))
+  app.use(cors(corsOptions))
   app.use(cookieParser())
   app.use(express.json())
   app.use('/api/v1', APIs_v1);

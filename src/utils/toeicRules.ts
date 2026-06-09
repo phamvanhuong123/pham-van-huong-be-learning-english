@@ -3,18 +3,6 @@ import { StatusCodes } from "http-status-codes";
 import { ExamPart } from "@/types/exam.types";
 import { PassagePayload } from "@/types/question.types";
 
-/**
- * Validate cấu trúc media bắt buộc của từng Part TOEIC.
- *
- * | Part | Yêu cầu |
- * |------|---------|
- * | Part 1 | AUDIO hoặc VIDEO, không được có TEXT |
- * | Part 2 | AUDIO hoặc VIDEO, không được có TEXT |
- * | Part 3 & 4 | AUDIO hoặc VIDEO |
- * | Part 6 & 7 | TEXT hoặc IMAGE passage (đoạn văn hoặc hình ảnh) |
- * | Part 5 | Không dùng group – dùng standalone |
- * | FULL | Không thêm câu hỏi trực tiếp |
- */
 export const validatePartMedia = (part: ExamPart, passages: PassagePayload[]): void => {
   const mediaTypes = passages.map((p) => p.mediaType);
 

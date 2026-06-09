@@ -51,7 +51,7 @@ export const vocabService = {
   },
 
   createVocab: async (userId: string, data: any, audioFile?: Express.Multer.File) => {
-    // Check duplicate
+
     const existing = await prisma.vocab.findUnique({
       where: {
         userId_word: { userId, word: data.word }
@@ -79,7 +79,7 @@ export const vocabService = {
         audioUrl: finalAudioUrl,
         userId,
         schedule: {
-          create: {} // defaults from schema
+          create: {}
         }
       },
       include: { schedule: true }
@@ -163,6 +163,19 @@ export const vocabService = {
     });
 
     return result;
+  },
+
+  getTopics: async (userId: string) => {
+    const vocabs = await prisma.vocab.findMany({
+      where: { userId, toeicTopic: { not: null } },
+      select: { toeicTopic: true },
+      distinct: ['toeicTopic'],
+      orderBy: { toeicTopic: 'asc' }
+    });
+
+    return vocabs
+      .map(v => v.toeicTopic)
+      .filter((t): t is string => t !== null);
   },
 
 };

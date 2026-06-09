@@ -1,4 +1,4 @@
-export type VocabStatus = 'NEW' | 'LEARNING' | 'REVIEW' | 'MASTERED';
+export type VocabStatus = 'NEW' | 'LEARNING' | 'REVIEW';
 export type Rating = 1 | 2 | 3 | 4; // 1: Lại, 2: Khó, 3: Tốt, 4: Dễ
 
 export interface CurrentSchedule {
@@ -16,10 +16,6 @@ export interface NextSchedule {
   nextReviewAt: Date;
 }
 
-/**
- * Tính toán lịch học tiếp theo dựa trên đánh giá của User.
- * Áp dụng thuật toán SM-2 kết hợp Learning Steps. (Pure Function)
- */
 export function calculateNextReview(current: CurrentSchedule, rating: Rating): NextSchedule {
   let { status, repetitions, interval, ef } = current;
   let nextReviewMinutes = 0;
@@ -43,9 +39,9 @@ export function calculateNextReview(current: CurrentSchedule, rating: Rating): N
       interval = 3;
       nextReviewMinutes = interval * 24 * 60;
     }
-  } 
+  }
   else if (status === 'LEARNING') {
-    if (repetitions === 0) {
+    if (repetitions === 0) {  
       if (rating === 1) {
         nextReviewMinutes = 1;
       } else if (rating === 2) {
@@ -74,44 +70,40 @@ export function calculateNextReview(current: CurrentSchedule, rating: Rating): N
         nextReviewMinutes = interval * 24 * 60;
       }
     }
-  } 
+  }
   else {
     status = 'REVIEW';
-    
+
     if (rating === 1) {
       status = 'LEARNING';
-      repetitions = 0; // Đưa về relearning step đầu tiên
+      repetitions = 0;
       ef = Math.max(1.3, ef - 0.2);
-      interval = 1; // Giữ mốc interval 1 ngày cho lần qua ải sau
-      nextReviewMinutes = 10; // Anki mặc định rớt đài về 10m
+      interval = 1;
+      nextReviewMinutes = 10;
     } else if (rating === 2) {
-      // Khó: Tăng ít nhất 1 ngày so với hiện tại
       const hardMultiplierInterval = Math.round(current.interval * 1.2);
       interval = Math.max(current.interval + 1, hardMultiplierInterval);
-      
+
       ef = Math.max(1.3, ef - 0.15);
       nextReviewMinutes = interval * 24 * 60;
     } else if (rating === 3) {
-      // Tốt: Phải lớn hơn Khó ít nhất 1 ngày
       const goodMultiplierInterval = Math.round(current.interval * ef);
       const hardInterval = Math.max(current.interval + 1, Math.round(current.interval * 1.2));
       interval = Math.max(hardInterval + 1, goodMultiplierInterval);
-      
+
       nextReviewMinutes = interval * 24 * 60;
     } else if (rating === 4) {
       // Dễ: Phải lớn hơn Tốt ít nhất 1 ngày
       const easyMultiplierInterval = Math.round(current.interval * ef * 1.3);
-      
+
       const hardInterval = Math.max(current.interval + 1, Math.round(current.interval * 1.2));
       const goodInterval = Math.max(hardInterval + 1, Math.round(current.interval * ef));
-      
+
       interval = Math.max(goodInterval + 1, easyMultiplierInterval);
-      
+
       ef = ef + 0.15;
       nextReviewMinutes = interval * 24 * 60;
     }
-    
-    // Safety check cho REVIEW
     if (status === 'REVIEW' && interval < 1) {
       interval = 1;
       nextReviewMinutes = 24 * 60;
@@ -129,9 +121,7 @@ export function calculateNextReview(current: CurrentSchedule, rating: Rating): N
   };
 }
 
-/**
- * Tính toán trước thời gian cho từng nút bấm để hiển thị lên UI
- */
+
 export function previewNextIntervals(current: CurrentSchedule) {
   return {
     again: calculateNextReview(current, 1).nextReviewAt,

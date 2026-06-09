@@ -352,6 +352,38 @@ const updatePassageGroup = async (groupId: string, data: UpdatePassageGroupBody)
       });
     }
 
+    // Update từng question con (difficulty, questionText, explanation, order, options)
+    if (data.questions && data.questions.length > 0) {
+      for (const q of data.questions) {
+        if (!q.id) continue;
+
+        if (q.options) {
+          await tx.option.deleteMany({ where: { questionId: q.id } });
+        }
+
+        await tx.question.update({
+          where: { id: q.id },
+          data: {
+            ...(q.questionText !== undefined ? { questionText: q.questionText } : {}),
+            ...(q.difficulty !== undefined ? { difficulty: q.difficulty } : {}),
+            ...(q.explanation !== undefined ? { explanation: q.explanation } : {}),
+            ...(q.order !== undefined ? { order: q.order } : {}),
+            ...(q.options
+              ? {
+                options: {
+                  create: q.options.map((opt: any) => ({
+                    label: opt.label,
+                    text: opt.text,
+                    isCorrect: opt.isCorrect,
+                  })),
+                },
+              }
+              : {}),
+          },
+        });
+      }
+    }
+
     const group = await tx.passageGroup.update({
       where: { id: groupId },
       data: {

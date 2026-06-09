@@ -20,6 +20,7 @@ router.get('/export', vocabController.exportCsv);
 // CRUD routes
 router.get('/', vocabController.getVocabList);
 router.get('/stats', vocabController.getVocabStats);
+router.get('/topics', vocabController.getVocabTopics);
 router.post('/', uploadSingleMedia, vocabController.createVocab);
 router.get('/:id', vocabController.getVocabById);
 router.put('/:id', uploadSingleMedia, vocabController.updateVocab);

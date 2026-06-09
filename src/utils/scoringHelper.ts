@@ -1,5 +1,3 @@
-// TOEIC Conversion Table (Approximate ETS standard)
-// 100 questions -> scaled score 5 to 495
 const LISTENING_SCALED_SCORE: Record<number, number> = {
   0: 5, 1: 5, 2: 5, 3: 5, 4: 5, 5: 5, 6: 5, 7: 10, 8: 15, 9: 20, 10: 25,
   11: 30, 12: 35, 13: 40, 14: 45, 15: 50, 16: 55, 17: 60, 18: 65, 19: 70, 20: 75,
@@ -28,7 +26,7 @@ const READING_SCALED_SCORE: Record<number, number> = {
 
 export const getScaledScore = (type: 'LISTENING' | 'READING', correctAnswers: number, totalQuestions: number): number => {
   const scoreMap = type === 'LISTENING' ? LISTENING_SCALED_SCORE : READING_SCALED_SCORE;
-  // Quy đổi tỷ lệ: nếu đề chỉ có 5 câu listening mà đúng 3 → tỷ lệ 3/5 = 60% → quy ra 60/100
+  // Quy đổi tỷ lệ: nếu đề chỉ có 5 câu listening mà đúng 3 → tỷ lệ 3/5 = 60%  quy ra 60/100
   const scaledCorrect = totalQuestions > 0
     ? Math.round((correctAnswers / totalQuestions) * 100)
     : 0;

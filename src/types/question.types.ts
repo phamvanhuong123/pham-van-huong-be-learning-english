@@ -48,7 +48,7 @@ export interface CreateStandaloneQuestionBody {
   options: OptionPayload[];
 }
 
-// ─── Tạo nhóm câu hỏi – Part 1, 2, 3, 4, 6, 7 ───────────────────
+
 export interface CreateQuestionGroupBody {
   examId: string;           // bắt buộc – xác định part và validate rule
   passageType?: PassageType; // SINGLE | DOUBLE | TRIPLE (Part 7)
@@ -56,7 +56,7 @@ export interface CreateQuestionGroupBody {
   questions: QuestionPayload[];
 }
 
-// ─── Cập nhật câu hỏi đơn ────────────────────────────────────────
+
 export interface UpdateQuestionBody {
   questionText?: string | null;
   difficulty?: QuestionDifficulty;
@@ -65,9 +65,13 @@ export interface UpdateQuestionBody {
   options?: OptionPayload[];
 }
 
-// ─── Cập nhật passage group (media/text) ─────────────────────────
+
+export interface UpdateQuestionPayload extends QuestionPayload {
+  id?: string;
+}
+
 export interface UpdatePassageGroupBody {
   passageType?: PassageType;
   passages?: PassagePayload[];
-  questions?: QuestionPayload[];
+  questions?: UpdateQuestionPayload[];
 }

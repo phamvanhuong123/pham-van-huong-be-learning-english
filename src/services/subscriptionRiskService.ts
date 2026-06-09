@@ -5,7 +5,6 @@ export const subscriptionRiskService = {
     let score = 0;
     const flags: string[] = [];
 
-    // 1. Check duplicate proof hash
     const duplicateProof = await prisma.subscription.findFirst({
       where: { proofHash, userId: { not: userId } }
     });
@@ -14,7 +13,6 @@ export const subscriptionRiskService = {
       flags.push('DUPLICATE_PROOF');
     }
 
-    // 2. Check banned bank account
     const bannedBank = await prisma.bannedBankAccount.findUnique({
       where: { bankAccountNo }
     });

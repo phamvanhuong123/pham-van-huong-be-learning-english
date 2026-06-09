@@ -14,7 +14,7 @@ export const adminUserService = {
     const skip = (page - 1) * limit;
 
     const where: any = {};
-    
+
     if (query.search) {
       where.OR = [
         { email: { contains: query.search, mode: 'insensitive' } },
@@ -123,8 +123,6 @@ export const adminUserService = {
     if (!role) throw new ApiError('Role not found', StatusCodes.NOT_FOUND);
 
     await prisma.$transaction(async (tx) => {
-      // For simplicity, we just clear old roles and set the new one,
-      // Or we can just upsert. Assuming 1 main role per user.
       await tx.userRole.deleteMany({ where: { userId: id } });
       await tx.userRole.create({
         data: {
@@ -153,7 +151,7 @@ export const adminUserService = {
     if (!user) throw new ApiError('User not found', StatusCodes.NOT_FOUND);
 
     const { hashedToken, token } = generateRandomToken();
-    
+
     await prisma.$transaction(async (tx) => {
       await tx.user.update({
         where: { id },
@@ -176,7 +174,6 @@ export const adminUserService = {
       });
     });
 
-    // Send email
     await emailService.sendPasswordResetEmail(user.email, user.name || "Bạn", token);
 
     emitToUser(id, 'session_kicked', {});

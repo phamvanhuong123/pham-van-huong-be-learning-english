@@ -60,7 +60,6 @@ export const profileService = {
     if (!user) throw new ApiError('User not found', StatusCodes.NOT_FOUND);
 
     if (user.avatarUrl) {
-      // attempt to delete old avatar
       await deleteMediaByUrl(user.avatarUrl, 'IMAGE');
     }
 
@@ -87,8 +86,6 @@ export const profileService = {
         where: { id: userId },
         data: { passwordHash }
       });
-
-      // Invalidate all sessions
       await tx.userSession.updateMany({
         where: { userId, isActive: true },
         data: { isActive: false }
