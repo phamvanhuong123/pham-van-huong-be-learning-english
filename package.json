@@ -6,7 +6,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "cross-env BUILD_MODE=dev nodemon --exec ts-node -r tsconfig-paths/register src/index.ts",
     "build": "tsc && tsc-alias",
-    "start": "npm run build && cross-env BUILD_MODE=production node dist/src/index.js",
+    "start": "cross-env BUILD_MODE=production node dist/src/index.js",
     "seed1": "ts-node src/mockData/seed1.ts",
     "seed2": "ts-node src/mockData/seed2.ts",
     "simulate": "ts-node -r tsconfig-paths/register simulate-time.ts"
