@@ -1,5 +1,5 @@
 import { CorsOptions } from 'cors';
-import { WHITELIST_DOMAINS } from '@/utils/constanst'; // Khuyên bạn nên đổi tên file này thành constants.ts
+import { WHITELIST_DOMAINS } from '@/utils/constanst';
 import { env } from '@/config/environment';
 import { StatusCodes } from 'http-status-codes';
 import ApiError from '@/utils/ApiError';
