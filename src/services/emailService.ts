@@ -4,7 +4,7 @@ import { EmailDeliveryError } from "@/utils/EmailDeliveryError";
 import { resetPasswordTemplate, verifyEmailTemplate } from "@/utils/emailTemplates";
 import { MailOptions } from "nodemailer/lib/json-transport";
 
-const CLIENT_URL = env.BUILD_MODE === "dev" ? "http://localhost:5173" : "abc";
+const CLIENT_URL = env.BUILD_MODE === "dev" ? "http://localhost:5173" : env.FRONTEND_URL;
 const from = `"TOEIC Master" <${env.SMTP_FROM || env.SMTP_USER || "noreply@toeicmaster.vn"}>`;
 
 const sendVerificationEmail = async (
@@ -22,7 +22,7 @@ const sendVerificationEmail = async (
         name,
         verifyUrl,
         expiresIn: "1 giờ",
-        clientUrl: CLIENT_URL,
+        clientUrl: CLIENT_URL!,
       }),
     };
     const transporter = await getTransporter();
@@ -49,7 +49,7 @@ const sendPasswordResetEmail = async (
         name,
         resetUrl,
         expiresIn: "1 giờ",
-        clientUrl: CLIENT_URL,
+        clientUrl: CLIENT_URL!,
       }),
     };
     const transporter = await getTransporter();
